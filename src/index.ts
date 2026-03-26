@@ -12,9 +12,9 @@ const PORT = parseInt(process.env.PORT || "3000", 10);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api", healthRouter);
-app.use("/api", slotRouter);
 app.use("/api/auth", authRouter);
+app.use("/api", slotRouter);
+app.use("/api", healthRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const status = err.statusCode || 500;

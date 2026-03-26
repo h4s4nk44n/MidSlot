@@ -5,13 +5,32 @@ import {
     updateSlot, 
     deleteSlot 
 } from "../controllers/slot.controller";
+import { authenticate, authorize, AuthRequest } from "../middlewares/auth.middleware";
+import { Request, Response, NextFunction } from "express";
 
 const router = Router();
 
-// Map incoming HTTP requests to the corresponding controller functions
-router.post("/slots", createSlot);
 router.get("/slots", getSlots);
-router.put("/slots/:id", updateSlot);
-router.delete("/slots/:id", deleteSlot);
+
+router.use((req: Request, res: Response, next: NextFunction) => 
+    authenticate(req as AuthRequest, res, next)
+);
+
+router.post(
+    "/slots", 
+    authorize("DOCTOR"), 
+    createSlot
+);
+
+router.put(
+    "/slots/:id", 
+    authorize("DOCTOR"), 
+    updateSlot
+);
+router.delete(
+    "/slots/:id", 
+    authorize("DOCTOR"), 
+    deleteSlot
+);
 
 export default router;
