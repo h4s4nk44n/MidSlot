@@ -13,6 +13,26 @@ export const createSlot = async (req: Request, res: Response): Promise<void> => 
         }
 
         const { date, startTime, endTime } = req.body;
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        const requestedDate = new Date(date);
+        const now = new Date();
+
+        if (start >= end) {
+            res.status(400).json({ message: "Start time must be before end time." });
+            return;
+        }
+
+        if (start < now) {
+            res.status(400).json({ message: "Cannot create slots in the past." });
+            return;
+        }
+
+        const durationMs = end.getTime() - start.getTime();
+        if (durationMs < 15 * 60 * 1000 || durationMs > 4 * 60 * 60 * 1000) {
+            res.status(400).json({ message: "Slot duration must be between 15 minutes and 4 hours." });
+            return;
+        }
 
         const doctor = await prisma.doctor.findUnique({
             where: { userId: userId },
@@ -23,12 +43,28 @@ export const createSlot = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
+        const overlapping = await prisma.timeSlot.findFirst({
+            where: {
+                doctorId: doctor.id,
+                date: requestedDate,
+                AND: [
+                    { startTime: { lt: end } },
+                    { endTime: { gt: start } }
+                ]
+            }
+        });
+
+        if (overlapping) {
+            res.status(409).json({ message: "Time slot overlaps with existing slot" });
+            return;
+        }
+
         const newSlot = await prisma.timeSlot.create({
             data: {
                 doctorId: doctor.id,
-                date: new Date(date),
-                startTime: new Date(startTime),
-                endTime: new Date(endTime),
+                date: requestedDate,
+                startTime: start,
+                endTime: end,
             },
         });
 
@@ -67,16 +103,47 @@ export const getSlots = async (_req: Request, res: Response): Promise<void> => {
 
 export const updateSlot = async (req: Request, res: Response): Promise<void> => {
     try {
-        // TypeScript'i susturduğumuz kısım: as string
         const id = req.params.id as string;
         const { date, startTime, endTime, isBooked } = req.body;
+
+        const currentSlot = await prisma.timeSlot.findUnique({ where: { id } });
+        if (!currentSlot) {
+            res.status(404).json({ message: "Slot not found" });
+            return;
+        }
+
+        const newStart = startTime ? new Date(startTime) : currentSlot.startTime;
+        const newEnd = endTime ? new Date(endTime) : currentSlot.endTime;
+        const newDate = date ? new Date(date) : currentSlot.date;
+
+        if (newStart >= newEnd) {
+            res.status(400).json({ message: "Start time must be before end time." });
+            return;
+        }
+
+        const overlapping = await prisma.timeSlot.findFirst({
+            where: {
+                doctorId: currentSlot.doctorId,
+                date: newDate,
+                id: { not: id },
+                AND: [
+                    { startTime: { lt: newEnd } },
+                    { endTime: { gt: newStart } }
+                ]
+            }
+        });
+
+        if (overlapping) {
+            res.status(409).json({ message: "Update fails: Overlaps with another slot" });
+            return;
+        }
 
         const updatedSlot = await prisma.timeSlot.update({
             where: { id: id },
             data: {
-                ...(date && { date: new Date(date) }),
-                ...(startTime && { startTime: new Date(startTime) }),
-                ...(endTime && { endTime: new Date(endTime) }),
+                ...(date && { date: newDate }),
+                ...(startTime && { startTime: newStart }),
+                ...(endTime && { endTime: newEnd }),
                 ...(isBooked !== undefined && { isBooked }),
             },
         });
