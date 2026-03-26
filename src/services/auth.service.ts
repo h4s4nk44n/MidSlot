@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
-import { RegisterInput } from "../validators/auth.validator";
+import { RegisterInput, LoginInput } from "../validators/auth.validator";
+import jwt from "jsonwebtoken";
 
 export const registerUser = async (data: RegisterInput) => {
   const { email, name, password, role } = data;
@@ -39,4 +40,40 @@ export const registerUser = async (data: RegisterInput) => {
   });
 
   return user;
+};
+
+export const loginUser = async (data: LoginInput) => {
+  const { email, password } = data;
+
+  // 1. Kullanıcıyı bul
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // 2. Kullanıcı yoksa veya şifre yanlışsa — aynı hata mesajı (security)
+  if (!user) {
+    const error = new Error("Invalid email or password") as any;
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const passwordMatch = await bcrypt.compare(password, user.password);
+  if (!passwordMatch) {
+    const error = new Error("Invalid email or password") as any;
+    error.statusCode = 401;
+    throw error;
+  }
+
+  // 3. JWT oluştur
+  const token = jwt.sign(
+  { userId: user.id, email: user.email, role: user.role },
+  process.env.JWT_SECRET as string,
+  { expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as jwt.SignOptions["expiresIn"] }
+);
+
+  // 4. Password olmadan döndür
+  const { password: _, ...userWithoutPassword } = user;
+
+  return {
+    token,
+    user: userWithoutPassword,
+  };
 };
