@@ -11,7 +11,7 @@ export const createSlot = async (req: Request, res: Response): Promise<void> => 
 };
 
 // GET /api/slots
-export const getSlots = async (req: Request, res: Response): Promise<void> => {
+export const getSlots = async (_req: Request, res: Response): Promise<void> => {
     res.status(200).json({
         message: "Placeholder: All available time slots will be listed here.",
         slots: [] 
