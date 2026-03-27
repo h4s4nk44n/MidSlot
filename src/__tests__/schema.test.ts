@@ -107,9 +107,7 @@ describe("Doctor model", () => {
 
     await prisma.doctor.create({ data: { userId: user.id } });
 
-    await expect(
-      prisma.doctor.create({ data: { userId: user.id } }),
-    ).rejects.toThrow();
+    await expect(prisma.doctor.create({ data: { userId: user.id } })).rejects.toThrow();
   });
 
   it("can be queried through the User relation", async () => {

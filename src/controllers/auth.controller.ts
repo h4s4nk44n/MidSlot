@@ -1,12 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { registerSchema, loginSchema } from "../validators/auth.validator";
-import { registerUser,loginUser } from "../services/auth.service";
+import { registerUser, loginUser } from "../services/auth.service";
 
-export const register = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parsed = registerSchema.safeParse(req.body);
 
@@ -25,11 +21,7 @@ export const register = async (
   }
 };
 
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parsed = loginSchema.safeParse(req.body);
 

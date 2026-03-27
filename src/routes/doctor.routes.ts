@@ -7,6 +7,8 @@ const router = Router();
 router.get("/", authenticate, doctorController.getAllDoctors);
 router.get("/:id", authenticate, doctorController.getDoctorById);
 router.get("/:id/slots", authenticate, doctorController.getDoctorSlots);
+
+// Secure Dashboard Route
 router.get("/me/dashboard", authenticate, authorize("DOCTOR"), doctorController.getDoctorDashboard);
 
 export default router;

@@ -64,10 +64,10 @@ export const loginUser = async (data: LoginInput) => {
 
   // 3. JWT oluştur
   const token = jwt.sign(
-  { userId: user.id, email: user.email, role: user.role },
-  process.env.JWT_SECRET as string,
-  { expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as jwt.SignOptions["expiresIn"] }
-);
+    { userId: user.id, email: user.email, role: user.role },
+    process.env.JWT_SECRET as string,
+    { expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as jwt.SignOptions["expiresIn"] },
+  );
 
   // 4. Password olmadan döndür
   const { password: _, ...userWithoutPassword } = user;
