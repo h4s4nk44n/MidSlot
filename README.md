@@ -70,10 +70,10 @@ prisma/
 
 # Team Members
 
-| Fullname          | Number  |
-|:------------------|:--------|
-| Ahmet Kerem Ince  | 2690659 |
-| Efe Can Ezenoglu  | TODO    |
-| Hasan Kaan Doygun | TODO    |
-| Onur Pinarbasi    | 2640662 |
-| Taha Turkay Aktas | 2640274 |
+| Fullname          |
+|:------------------|
+| Ahmet Kerem Ince  |
+| Efe Can Ezenoglu  |
+| Hasan Kaan Doygun |
+| Onur Pinarbasi    |
+| Taha Turkay Aktas |
