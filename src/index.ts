@@ -2,8 +2,6 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import healthRouter from "./routes/health.routes";
 import errorHandler from "./middlewares/error.middlewares";
-import validate from "./middlewares/validate.middleware";
-import { registerSchema } from "./validations/auth.validation";
 
 dotenv.config();
 
@@ -18,11 +16,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", healthRouter);
 
 /* </Routes> */
-
-// temporary test route
-app.post("/test-validate", validate(registerSchema), (_req, res) => {
-  res.status(200).json({ message: "Validation passed", data: _req.body });
-});
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({
