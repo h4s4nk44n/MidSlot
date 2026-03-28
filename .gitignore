@@ -13,6 +13,9 @@ dist/
 prisma/*.db
 prisma/*.db-journal
 
+# Prisma generated client
+src/generated/
+
 # IDE
 .vscode/
 .idea/

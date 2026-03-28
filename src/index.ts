@@ -2,6 +2,9 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import healthRouter from "./routes/health.routes";
 import errorHandler from "./middlewares/error.middlewares";
+import slotRouter from "./routes/slot.routes";
+import authRouter from "./routes/auth.routes";
+import appointmentRouter from "./routes/appointment.routes";
 
 dotenv.config();
 
@@ -12,9 +15,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* <Routes> */
-
+app.use("/api/auth", authRouter);
+app.use("/api", slotRouter);
+app.use("/api", appointmentRouter);
 app.use("/api", healthRouter);
-
 /* </Routes> */
 
 app.use((_req: Request, res: Response) => {
