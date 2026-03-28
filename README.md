@@ -1,14 +1,23 @@
-# MediSlot Backend
+# MediSlot
+
+## MediSlot Backend
 
 Medical appointment scheduling platform — backend API built with Express, TypeScript, and Prisma.
 
-## Prerequisites
+### Properties
+
+- Runtime: `Node.js` + `TypeScript`
+- Framework: `Express.js`
+- ORM: `Prisma`
+- Authorization: `JWT`
+
+### Prerequisites
 
 - Node.js >= 18
 - PostgreSQL
 - npm
 
-## Getting Started
+### Getting Started
 
 ```bash
 # Install dependencies
@@ -28,7 +37,7 @@ npx prisma migrate dev
 npm run dev
 ```
 
-## Scripts
+### Scripts
 
 | Command              | Description                        |
 | -------------------- | ---------------------------------- |
@@ -39,7 +48,7 @@ npm run dev
 | `npm run lint:fix`   | Run ESLint with auto-fix           |
 | `npm run format`     | Format code with Prettier          |
 
-## Project Structure
+### Project Structure
 
 ```
 src/
@@ -53,8 +62,18 @@ prisma/
 └── schema.prisma   # Database schema
 ```
 
-## API Endpoints
+### API Endpoints
 
 | Method | Path          | Description  |
 | ------ | ------------- | ------------ |
 | GET    | `/api/health` | Health check |
+
+# Team Members
+
+| Fullname          |
+|:------------------|
+| Ahmet Kerem Ince  |
+| Efe Can Ezenoglu  |
+| Hasan Kaan Doygun |
+| Onur Pinarbasi    |
+| Taha Turkay Aktas |
