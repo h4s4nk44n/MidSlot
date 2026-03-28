@@ -17,10 +17,10 @@ check() {
   local actual=$3
 
   if echo "$actual" | grep -q "$expected"; then
-    echo -e "${green}✅ PASS${nc} — $description"
+    echo -e "${green}PASS${nc} — $description"
     PASS=$((PASS + 1))
   else
-    echo -e "${red}❌ FAIL${nc} — $description"
+    echo -e "${red}FAIL${nc} — $description"
     echo "   Beklenen: $expected"
     echo "   Gelen:    $actual"
     FAIL=$((FAIL + 1))
@@ -43,10 +43,10 @@ RES=$(curl -s -X POST $BASE_URL/auth/register \
 check "Geçerli DOCTOR kaydı → 201 + id dönmeli" '"id"' "$RES"
 
 if echo "$RES" | grep -q '"password"'; then
-  echo -e "${red}❌ FAIL${nc} — Password response'da var!"
+  echo -e "${red}FAIL${nc} — Password response'da var!"
   FAIL=$((FAIL+1))
 else
-  echo -e "${green}✅ PASS${nc} — Password response'da yok"
+  echo -e "${green}PASS${nc} — Password response'da yok"
   PASS=$((PASS+1))
 fi
 
@@ -87,10 +87,10 @@ check "Geçerli login → token dönmeli" '"token"' "$RES"
 check "Geçerli login → user dönmeli" '"user"' "$RES"
 
 if echo "$RES" | grep -q '"password"'; then
-  echo -e "${red}❌ FAIL${nc} — Login'de password var!"
+  echo -e "${red}FAIL${nc} — Login'de password var!"
   FAIL=$((FAIL+1))
 else
-  echo -e "${green}✅ PASS${nc} — Login'de password yok"
+  echo -e "${green}PASS${nc} — Login'de password yok"
   PASS=$((PASS+1))
 fi
 
@@ -129,10 +129,10 @@ check "Geçerli token → /me user dönmeli" '"email"' "$RES"
 check "DOCTOR için doctor profili dönmeli" '"doctor"' "$RES"
 
 if echo "$RES" | grep -q '"password"'; then
-  echo -e "${red}❌ FAIL${nc} — /me'de password var!"
+  echo -e "${red}FAIL${nc} — /me'de password var!"
   FAIL=$((FAIL+1))
 else
-  echo -e "${green}✅ PASS${nc} — /me'de password yok"
+  echo -e "${green}PASS${nc} — /me'de password yok"
   PASS=$((PASS+1))
 fi
 
