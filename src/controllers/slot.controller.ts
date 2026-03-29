@@ -1,103 +1,102 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import {
+  NotFoundError,
+  BadRequestError,
+  ConflictError,
+  InternalServerError, UnauthorisedError,
+} from "../utils/errors";
 
 export const createSlot = async (req: Request, res: Response): Promise<void> => {
     try {
-        const authReq = req as AuthRequest;
-        const userId = authReq.user?.userId;
+      const authReq = req as AuthRequest;
+      const userId = authReq.user?.userId;
 
-        if (!userId) {
-            res.status(401).json({ message: "Unauthorized: User ID missing from token." });
-            return;
-        }
+      if (!userId) {
+        throw new UnauthorisedError("Unauthorized: User ID missing from token.");
+      }
 
-        const { date, startTime, endTime } = req.body;
-        const start = new Date(startTime);
-        const end = new Date(endTime);
-        const requestedDate = new Date(date);
-        const now = new Date();
+      const { date, startTime, endTime } = req.body;
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      const requestedDate = new Date(date);
+      const now = new Date();
 
-        if (start >= end) {
-            res.status(400).json({ message: "Start time must be before end time." });
-            return;
-        }
+      if (start >= end) {
+        throw new BadRequestError("Start time must be before end time.");
+      }
 
-        if (start < now) {
-            res.status(400).json({ message: "Cannot create slots in the past." });
-            return;
-        }
+      if (start < now) {
+        throw new BadRequestError("Cannot create slots in the past.");
+      }
 
-        const durationMs = end.getTime() - start.getTime();
-        if (durationMs < 15 * 60 * 1000 || durationMs > 4 * 60 * 60 * 1000) {
-            res.status(400).json({ message: "Slot duration must be between 15 minutes and 4 hours." });
-            return;
-        }
+      const durationMs = end.getTime() - start.getTime();
+      if (durationMs < 15 * 60 * 1000 || durationMs > 4 * 60 * 60 * 1000) {
+        throw new BadRequestError("Slot duration must be between 15 minutes and 4 hours.");
+        return;
+      }
 
-        const doctor = await prisma.doctor.findUnique({
-            where: { userId: userId },
-        });
+      const doctor = await prisma.doctor.findUnique({
+        where: { userId: userId },
+      });
 
-        if (!doctor) {
-            res.status(404).json({ message: "Doctor profile not found for this user." });
-            return;
-        }
+      if (!doctor) {
+        throw new NotFoundError("Doctor profile not found for this user.");
+        return;
+      }
 
-        const overlapping = await prisma.timeSlot.findFirst({
-            where: {
-                doctorId: doctor.id,
-                date: requestedDate,
-                AND: [
-                    { startTime: { lt: end } },
-                    { endTime: { gt: start } }
-                ]
-            }
-        });
+      const overlapping = await prisma.timeSlot.findFirst({
+        where: {
+          doctorId: doctor.id,
+          date: requestedDate,
+          AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
+        },
+      });
 
-        if (overlapping) {
-            res.status(409).json({ message: "Time slot overlaps with existing slot" });
-            return;
-        }
+      if (overlapping) {
+        throw new ConflictError("Time slot overlaps with existing slot");
+        return;
+      }
 
-        const newSlot = await prisma.timeSlot.create({
-            data: {
-                doctorId: doctor.id,
-                date: requestedDate,
-                startTime: start,
-                endTime: end,
-            },
-        });
+      const newSlot = await prisma.timeSlot.create({
+        data: {
+          doctorId: doctor.id,
+          date: requestedDate,
+          startTime: start,
+          endTime: end,
+        },
+      });
 
-        res.status(201).json({ 
-            message: "Time slot created successfully.",
-            data: newSlot 
-        });
-
+      res.status(201).json({
+        message: "Time slot created successfully.",
+        data: newSlot,
+      });
     } catch (error) {
-        console.error("[createSlot] Error:", error);
-        res.status(500).json({ message: "Internal server error while creating time slot." });
+      console.error("[createSlot] Error:", error);
+      throw new InternalServerError("Internal server error while creating time slot.");
     }
 };
 
 export const getSlots = async (_req: Request, res: Response): Promise<void> => {
     try {
-        const slots = await prisma.timeSlot.findMany({
-            where: { isBooked: false },
-            include: {
-                doctor: {
-                    include: { user: { select: { name: true, email: true } } }
-                }
-            },
-            orderBy: { date: 'asc' } 
-        });
-        
-        res.status(200).json({
-            message: "Available time slots retrieved successfully.",
-            slots
-        });
+      const slots = await prisma.timeSlot.findMany({
+        where: { isBooked: false },
+        include: {
+          doctor: {
+            include: { user: { select: { name: true, email: true } } },
+          },
+        },
+        orderBy: { date: "asc" },
+      });
+
+      res.status(200).json({
+        message: "Available time slots retrieved successfully.",
+        slots,
+      });
     } catch (error) {
-        console.error("[getSlots] Error:", error);
-        res.status(500).json({ message: "Internal server error while fetching slots." });
+      console.error("[getSlots] Error:", error);
+      throw new InternalServerError("Internal server error while fetching slots.");
     }
 };
 
@@ -108,8 +107,7 @@ export const updateSlot = async (req: Request, res: Response): Promise<void> => 
 
         const currentSlot = await prisma.timeSlot.findUnique({ where: { id } });
         if (!currentSlot) {
-            res.status(404).json({ message: "Slot not found" });
-            return;
+            throw new NotFoundError("Slot not found");
         }
 
         const newStart = startTime ? new Date(startTime) : currentSlot.startTime;
@@ -117,8 +115,7 @@ export const updateSlot = async (req: Request, res: Response): Promise<void> => 
         const newDate = date ? new Date(date) : currentSlot.date;
 
         if (newStart >= newEnd) {
-            res.status(400).json({ message: "Start time must be before end time." });
-            return;
+            throw new BadRequestError("Start time must be before end time.");
         }
 
         const overlapping = await prisma.timeSlot.findFirst({
@@ -134,8 +131,7 @@ export const updateSlot = async (req: Request, res: Response): Promise<void> => 
         });
 
         if (overlapping) {
-            res.status(409).json({ message: "Update fails: Overlaps with another slot" });
-            return;
+            throw new  ConflictError("Update fails: Overlaps with another slot.");
         }
 
         const updatedSlot = await prisma.timeSlot.update({
@@ -149,12 +145,12 @@ export const updateSlot = async (req: Request, res: Response): Promise<void> => 
         });
 
         res.status(200).json({
-            message: `Time slot updated successfully.`,
-            data: updatedSlot
+          message: `Time slot updated successfully.`,
+          data: updatedSlot,
         });
     } catch (error) {
         console.error("[updateSlot] Error:", error);
-        res.status(500).json({ message: "Internal server error while updating slot." });
+        throw new InternalServerError("Internal server error while updating slot.");
     }
 };
 
@@ -167,10 +163,10 @@ export const deleteSlot = async (req: Request, res: Response): Promise<void> => 
         });
 
         res.status(200).json({
-            message: `Time slot deleted successfully.`
+          message: `Time slot deleted successfully.`,
         });
     } catch (error) {
         console.error("[deleteSlot] Error:", error);
-        res.status(500).json({ message: "Internal server error while deleting slot." });
+        throw new InternalServerError("Internal server error while deleting slot.");
     }
 };
