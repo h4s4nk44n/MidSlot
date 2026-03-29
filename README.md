@@ -53,10 +53,13 @@ npm run dev
 ```
 src/
 ├── controllers/    # Request handlers
-├── middlewares/     # Express middleware
+├── middlewares/    # Express middleware
 ├── routes/         # Route definitions
 ├── services/       # Business logic
+├── types/          # Used structures
 ├── utils/          # Shared utilities
+├── validations/    # Validation logic
+├── validators/     # Validator handlers
 └── index.ts        # Application entry point
 prisma/
 └── schema.prisma   # Database schema
@@ -64,9 +67,18 @@ prisma/
 
 ### API Endpoints
 
-| Method | Path          | Description  |
-| ------ | ------------- | ------------ |
-| GET    | `/api/health` | Health check |
+| Method |      Path       |     Description     |
+|:------:|:---------------:|:-------------------:|
+|  GET   |  `/api/health`  |    Health check     |
+|  POST  | `/appointments` |  Appointment check  |
+|  POST  |    `/login`     |    Login action     |
+|  POST  |   `/register`   |   Register action   |
+|  GET   |      `/me`      |    Personal data    |
+|  GET   |    `/slots`     |    Retrive slots    |
+|  POST  |    `/slots`     |    Add to slots     |
+|  PUT   |  `/slots/:id`   | Update slot with id |
+| DELETE |  `/slots/:id`   | Delete slot with id |
+
 
 # Team Members
 
