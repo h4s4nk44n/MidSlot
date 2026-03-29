@@ -9,11 +9,12 @@
  418-I'm a Teapot
  422-Unprocessable Entity
  429-Too Many Requests
+ 500-Internal Server Error
  =======================
  Remaining status can be implemented additionally
 
  -Aki
- last change: 26/03/26
+ last change: 29/03/26
  **/
 
 export class AppError extends Error {
@@ -28,6 +29,8 @@ export class AppError extends Error {
     (Error as any).captureStackTrace(this, this.constructor);
   }
 }
+
+// ====================== 4xx ==========================
 
 /*  400 - Bad Request  */
 export class BadRequestError extends AppError {
@@ -82,5 +85,14 @@ export class UnprocessableEntityError extends AppError {
 export class TooManyRequestsError extends AppError {
   constructor(message = "Too Many Requests") {
     super(message, 429);
+  }
+}
+
+// ====================== 5xx ==========================
+
+/*  500 - Internal Server Error  */
+export class InternalServerError extends AppError {
+  constructor(message = "Internal Server Error") {
+    super(message, 500);
   }
 }
