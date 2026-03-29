@@ -184,8 +184,6 @@ Get all available slots
 
 | Fullname          |
 |:------------------|
-| Ahmet Kerem Ince  |
 | Efe Can Ezenoglu  |
 | Hasan Kaan Doygun |
-| Onur Pinarbasi    |
 | Taha Turkay Aktas |
