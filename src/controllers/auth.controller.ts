@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { registerSchema, loginSchema } from "../validators/auth.validator";
 import { registerUser,loginUser } from "../services/auth.service";
+import { BadRequestError } from "../utils/errors";
 
 export const register = async (
   req: Request,
@@ -11,10 +12,7 @@ export const register = async (
     const parsed = registerSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      res.status(400).json({
-        message: "Invalid input",
-        errors: parsed.error.flatten().fieldErrors,
-      });
+      throw new BadRequestError("Invalid input");
       return;
     }
 
@@ -34,10 +32,7 @@ export const login = async (
     const parsed = loginSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      res.status(400).json({
-        message: "Invalid input",
-        errors: parsed.error.flatten().fieldErrors,
-      });
+      throw new BadRequestError("This slot is already booked.");
       return;
     }
 
