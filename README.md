@@ -67,18 +67,118 @@ prisma/
 
 ### API Endpoints
 
-| Method |      Path       |     Description     |
-|:------:|:---------------:|:-------------------:|
-|  GET   |  `/api/health`  |    Health check     |
-|  POST  | `/appointments` |  Appointment check  |
-|  POST  |    `/login`     |    Login action     |
-|  POST  |   `/register`   |   Register action   |
-|  GET   |      `/me`      |    Personal data    |
-|  GET   |    `/slots`     |    Retrive slots    |
-|  POST  |    `/slots`     |    Add to slots     |
-|  PUT   |  `/slots/:id`   | Update slot with id |
-| DELETE |  `/slots/:id`   | Delete slot with id |
+| Method |        Path         |     Description     |
+|:------:|:-------------------:|:-------------------:|
+|  GET   |    `/api/health`    |    Health check     |
+|  POST  |    `/api/login`     |    Login action     |
+|  POST  |   `/api/register`   |   Register action   |
+|  GET   |      `/api/me`      |    Personal data    |
+|  GET   |    `/api/slots`     |    Retrive slots    |
+|  POST  |    `/api/slots`     |    Add to slots     |
+|  PUT   |  `/api/slots/:id`   | Update slot with id |
+| DELETE |  `/api/slots/:id`   | Delete slot with id |
 
+### Endpoint Formats
+
+#### GET /api/health
+
+Get health status  
+**Auth:** Public  
+**Response(200):**
+```
+json
+
+{
+  "status": "ok"
+}
+```
+
+---
+
+#### POST /api/register
+
+Register new user  
+**Auth:** Public  
+**Request:**
+```
+json
+
+{
+  "email": "John@Doe.com",
+  "name": "John Doe",
+  "password": "secret123",
+  "role": "PATIENT"
+}
+```
+
+**Response(201):**
+```
+{
+  "id": "uuid-here",
+  "email": "user@example.com",
+  "name": "Ali Vural",
+  "role": "PATIENT",
+  "createdAt": "2026-03-25T10:00:00Z"
+}
+```
+
+---
+
+#### POST /api/login
+
+Login user  
+**Auth:** Public  
+**Request:**
+```
+json
+
+{
+  "email": "user@example.com",
+  "password": "secret123"
+}
+```
+
+**Response(200):**
+```
+{
+  "token": "jwt-token-here",
+  "user": {
+    "id": "uuid-here",
+    "email": "user@example.com",
+    "role": "PATIENT"
+  }
+}
+```
+
+---
+
+#### GET /api/slots
+
+Get all available slots  
+**Auth:** Public
+**Response(200):**
+```
+{
+  "message": "Available time slots retrieved successfully.",
+  "slots": [
+    {
+      "id": "uuid-here",
+      "doctorId": "uuid-here",
+      "date": "2026-04-01T00:00:00.000Z",
+      "startTime": "2026-04-01T09:00:00.000Z",
+      "endTime": "2026-04-01T09:30:00.000Z",
+      "isBooked": false,
+      "createdAt": "2026-03-25T10:00:00Z",
+      "doctor": {
+        "user": {
+          "name": "Dr. Name",
+          "email": "drname@example.com"
+        }
+      }
+    }
+  ]
+}
+```
 
 # Team Members
 
