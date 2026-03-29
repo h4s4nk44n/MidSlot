@@ -32,10 +32,11 @@ export class AppError extends Error {
 
 // ====================== 4xx ==========================
 
-/*  400 - Bad Request  */
-export class BadRequestError extends AppError {
-  constructor(message = "Bad Request") {
+/*  400 - Bad Request  */export class BadRequestError extends AppError {
+  details?: object;
+  constructor(message = "Bad Request", details?: object) {
     super(message, 400);
+    this.details = details;
   }
 }
 
