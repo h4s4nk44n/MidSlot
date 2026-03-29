@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { NotFoundError, BadRequestError, InternalServerError } from "../utils/errors";
 
 export const createAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -11,13 +12,11 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
     });
 
     if (!slot) {
-      res.status(404).json({ message: "Time slot not found." });
-      return;
+      throw new NotFoundError("Time slot not found.");
     }
 
     if (slot.isBooked) {
-      res.status(400).json({ message: "This slot is already booked." });
-      return;
+      throw new BadRequestError("This slot is already booked.");
     }
 
     const appointment = await prisma.$transaction(async (tx) => {
@@ -43,6 +42,6 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       data: appointment,
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message || "Internal server error" });
+    throw new InternalServerError();
   }
 };
