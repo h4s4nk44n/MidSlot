@@ -5,6 +5,7 @@ import errorHandler from "./middlewares/error.middlewares";
 import slotRouter from "./routes/slot.routes";
 import authRouter from "./routes/auth.routes";
 import appointmentRouter from "./routes/appointment.routes";
+import doctorRouter from "./routes/doctor.routes";
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRouter);
 app.use("/api", slotRouter);
 app.use("/api", appointmentRouter);
+app.use("/api/doctors", doctorRouter);
 app.use("/api", healthRouter);
 /* </Routes> */
 
