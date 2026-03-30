@@ -14,6 +14,7 @@ afterAll(async () => {
 afterEach(async () => {
   await prisma.appointment.deleteMany();
   await prisma.timeSlot.deleteMany();
+  await prisma.refreshToken.deleteMany();
   await prisma.doctor.deleteMany();
   await prisma.user.deleteMany();
 });
@@ -385,5 +386,151 @@ describe("Cascade deletes", () => {
     expect(await prisma.doctor.findUnique({ where: { id: doctor.id } })).toBeNull();
     expect(await prisma.timeSlot.findMany({ where: { doctorId: doctor.id } })).toHaveLength(0);
     expect(await prisma.appointment.findMany({ where: { doctorId: doctor.id } })).toHaveLength(0);
+  });
+
+  it("deleting a User cascades to their RefreshTokens", async () => {
+    const user = await prisma.user.create({
+      data: { email: makeEmail(), password: "pw", name: "User RefreshToken", role: Role.PATIENT },
+    });
+    
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: "test-token-1",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    await prisma.user.delete({ where: { id: user.id } });
+
+    const tokens = await prisma.refreshToken.findMany({ where: { userId: user.id } });
+    expect(tokens).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RefreshToken model
+// ---------------------------------------------------------------------------
+describe("RefreshToken model", () => {
+  it("creates a refresh token for a user", async () => {
+    const user = await prisma.user.create({
+      data: { email: makeEmail(), password: "pw", name: "User RT", role: Role.PATIENT },
+    });
+
+    const token = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: "jwt-refresh-token-abc123",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    expect(token.id).toBeDefined();
+    expect(token.userId).toBe(user.id);
+    expect(token.token).toBe("jwt-refresh-token-abc123");
+    expect(token.expiresAt).toBeInstanceOf(Date);
+    expect(token.createdAt).toBeInstanceOf(Date);
+  });
+
+  it("enforces unique token constraint", async () => {
+    const user = await prisma.user.create({
+      data: { email: makeEmail(), password: "pw", name: "User1", role: Role.PATIENT },
+    });
+
+    const tokenValue = "unique-token-xyz";
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: tokenValue,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const user2 = await prisma.user.create({
+      data: { email: makeEmail(), password: "pw", name: "User2", role: Role.PATIENT },
+    });
+
+    await expect(
+      prisma.refreshToken.create({
+        data: {
+          userId: user2.id,
+          token: tokenValue, // Duplicate token
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("allows multiple refresh tokens per user", async () => {
+    const user = await prisma.user.create({
+      data: { email: makeEmail(), password: "pw", name: "UserMulti", role: Role.PATIENT },
+    });
+
+    const token1 = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: "token-1",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const token2 = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: "token-2",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const userTokens = await prisma.refreshToken.findMany({ where: { userId: user.id } });
+    expect(userTokens).toHaveLength(2);
+    expect(userTokens.map((t) => t.id)).toContain(token1.id);
+    expect(userTokens.map((t) => t.id)).toContain(token2.id);
+  });
+
+  it("can be queried through User relation", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: makeEmail(),
+        password: "pw",
+        name: "UserRel",
+        role: Role.PATIENT,
+        refreshTokens: {
+          create: {
+            token: "rel-token",
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        },
+      },
+      include: { refreshTokens: true },
+    });
+
+    expect(user.refreshTokens).toHaveLength(1);
+    expect(user.refreshTokens[0].token).toBe("rel-token");
+  });
+
+  it("deletes token when user is deleted", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: makeEmail(),
+        password: "pw",
+        name: "UserDel",
+        role: Role.PATIENT,
+        refreshTokens: {
+          create: {
+            token: "del-token",
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        },
+      },
+      include: { refreshTokens: true },
+    });
+
+    const tokenId = user.refreshTokens[0].id;
+
+    await prisma.user.delete({ where: { id: user.id } });
+
+    const token = await prisma.refreshToken.findUnique({ where: { id: tokenId } });
+    expect(token).toBeNull();
   });
 });
