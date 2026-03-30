@@ -44,16 +44,16 @@ const createRefreshToken = async (userId: string) => {
 export const registerUser = async (data: RegisterInput) => {
   const { email, name, password, role } = data;
 
-  // 1. Email zaten kayıtlı mı?
+  // 1. Is email already registered?
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw new ConflictError("Email already registered");
   }
 
-  // 2. Şifreyi hashle
+  // 2. Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // 3. User oluştur (DOCTOR ise Doctor profili de)
+  // 3. Create user (and Doctor profile if role is DOCTOR)
   const user = await prisma.user.create({
     data: {
       email,
@@ -81,10 +81,10 @@ export const registerUser = async (data: RegisterInput) => {
 export const loginUser = async (data: LoginInput) => {
   const { email, password } = data;
 
-  // 1. Kullanıcıyı bul
+  // 1. Find user
   const user = await prisma.user.findUnique({ where: { email } });
 
-  // 2. Kullanıcı yoksa veya şifre yanlışsa — aynı hata mesajı (security)
+  // 2. If user does not exist or password is wrong — same error message (security)
   if (!user) {
     throw new UnauthorisedError("Invalid email or password");
   }
@@ -94,13 +94,13 @@ export const loginUser = async (data: LoginInput) => {
     throw new UnauthorisedError("Invalid email or password");
   }
 
-  // 3. JWT token oluştur
+  // 3. Create JWT token
   const token = createJWTToken(user.id, user.email, user.role);
 
-  // 4. Refresh token oluştur ve kaydet
+  // 4. Create and save refresh token
   const refreshToken = await createRefreshToken(user.id);
 
-  // 5. Password olmadan döndür
+  // 5. Return without password
   const { password: _, ...userWithoutPassword } = user;
 
   return {
