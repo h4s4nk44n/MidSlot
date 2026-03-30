@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
 import { RegisterInput, LoginInput } from "../validators/auth.validator";
 import jwt from "jsonwebtoken";
+import { ConflictError, UnauthorisedError } from "../utils/errors";
 
 export const registerUser = async (data: RegisterInput) => {
   const { email, name, password, role } = data;
@@ -9,9 +10,7 @@ export const registerUser = async (data: RegisterInput) => {
   // 1. Email zaten kayıtlı mı?
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    const error = new Error("Email already registered") as any;
-    error.statusCode = 409;
-    throw error;
+    throw new ConflictError("Email already registered");
   }
 
   // 2. Şifreyi hashle
@@ -50,16 +49,12 @@ export const loginUser = async (data: LoginInput) => {
 
   // 2. Kullanıcı yoksa veya şifre yanlışsa — aynı hata mesajı (security)
   if (!user) {
-    const error = new Error("Invalid email or password") as any;
-    error.statusCode = 401;
-    throw error;
+    throw new UnauthorisedError("Invalid email or password");
   }
 
   const passwordMatch = await bcrypt.compare(password, user.password);
   if (!passwordMatch) {
-    const error = new Error("Invalid email or password") as any;
-    error.statusCode = 401;
-    throw error;
+    throw new UnauthorisedError("Invalid email or password");
   }
 
   // 3. JWT oluştur
