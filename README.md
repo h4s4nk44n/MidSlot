@@ -104,37 +104,8 @@ prisma/
 
 ### Entity Relationship Diagram
 
-```
-┌─────────────┐         ┌──────────────┐         ┌──────────────────┐
-│     User    │ 1    ┌──┤    Doctor    │◄────────┤    TimeSlot      │
-├─────────────┤  │   │  ├──────────────┤         ├──────────────────┤
-│ id (uuid)   │  │   │  │ id (uuid)    │         │ id (uuid)        │
-│ email       │  │   │  │ userId (fk)  │         │ doctorId (fk)    │
-│ password    │  │   │  │ specialization         │ date             │
-│ name        │  │   │  │ bio          │         │ startTime        │
-│ role        │  │   └──┤ user (rel)   │         │ endTime          │
-│ createdAt   │  │      └──────────────┘         │ isBooked         │
-│ updatedAt   │  │              │                │ createdAt        │
-└─────────────┘  │              │                └──────────────────┘
-       │◄────────┘              │ 1                       │
-       │                        │                        │
-       │ 1                      └────────────────┐       │
-       │                                        │       │
-       ├─────────────────────────────────►┌──────────▼───────▼──────┐
-       │                                   │   Appointment          │
-       │                                   ├───────────────────────────┤
-       │                                   │ id (uuid)               │
-       │                                   │ patientId (fk, User)    │
-       │                                   │ doctorId (fk, Doctor)   │
-       │                                   │ timeSlotId (fk, unique) │
-       │                                   │ status (BOOKED/...)     │
-       │                                   │ notes                   │
-       │                                   │ createdAt               │
-       │                                   │ updatedAt               │
-       │                                   └───────────────────────────┘
-       │
-    (Patients)
-```
+<img width="836" height="606" alt="clean_erd_with_cardinality drawio" src="https://github.com/user-attachments/assets/5f686f70-30f3-4d88-83b4-1b0994569c10" />
+
 
 ### Models
 
