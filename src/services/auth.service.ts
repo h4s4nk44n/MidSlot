@@ -4,9 +4,10 @@ import { prisma } from "../lib/prisma";
 import { RegisterInput, LoginInput } from "../validators/auth.validator";
 import { ConflictError, UnauthorisedError } from "../utils/errors";
 
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
-const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h"; // Default 1 hour
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d"; // Default 7 day
 
+// Helper to create JWT token
 const createJWTToken = (userId: string, email: string, role: string) => {
   return jwt.sign(
     { userId, email, role },
@@ -15,6 +16,7 @@ const createJWTToken = (userId: string, email: string, role: string) => {
   );
 };
 
+// Helper to create refresh token
 const createRefreshToken = async (userId: string) => {
   const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
   const token = jwt.sign(
@@ -23,9 +25,11 @@ const createRefreshToken = async (userId: string) => {
     { expiresIn: REFRESH_TOKEN_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
   );
 
+  // Calculate expiration date
   const payload = jwt.decode(token) as any;
   const expiresAt = new Date(payload.exp * 1000);
 
+  // Store refresh token in database
   await prisma.refreshToken.create({
     data: {
       userId,
@@ -46,7 +50,7 @@ export const registerUser = async (data: RegisterInput) => {
     throw new ConflictError("Email already registered");
   }
 
-  // 2. Hash password
+  // 2. Hashing the password
   const hashedPassword = await bcrypt.hash(password, 10);
 
   // 3. Create user (and Doctor profile if role is DOCTOR)
@@ -110,8 +114,10 @@ export const refreshAccessToken = async (refreshToken: string) => {
   try {
     const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
     
+    // Verify refresh token signature (will throw if invalid)
     jwt.verify(refreshToken, refreshTokenSecret as string);
 
+     // Check if refresh token exists in database and is valid
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: { user: true },
@@ -123,6 +129,7 @@ export const refreshAccessToken = async (refreshToken: string) => {
       throw error;
     }
 
+     // Create new access token
     const user = storedToken.user;
     const newAccessToken = createJWTToken(user.id, user.email, user.role);
 
@@ -149,11 +156,13 @@ export const refreshAccessToken = async (refreshToken: string) => {
 
 export const logoutUser = async (refreshToken: string) => {
   try {
+     // Delete refresh token from database
     await prisma.refreshToken.delete({
       where: { token: refreshToken },
     });
     return { success: true };
   } catch (error) {
+     // Token doesn't exist, that's okay for logout
     return { success: true };
   }
 };
