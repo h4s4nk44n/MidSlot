@@ -5,7 +5,7 @@ import { RegisterInput, LoginInput } from "../validators/auth.validator";
 import { ConflictError, UnauthorisedError } from "../utils/errors";
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h"; // Default 1 hour
-const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d"; // Default 7 days
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d"; // Default 7 day
 
 // Helper to create JWT token
 const createJWTToken = (userId: string, email: string, role: string) => {
@@ -50,7 +50,7 @@ export const registerUser = async (data: RegisterInput) => {
     throw new ConflictError("Email already registered");
   }
 
-  // 2. Hash password
+  // 2. Hashing the password
   const hashedPassword = await bcrypt.hash(password, 10);
 
   // 3. Create user (and Doctor profile if role is DOCTOR)
@@ -117,7 +117,7 @@ export const refreshAccessToken = async (refreshToken: string) => {
     // Verify refresh token signature (will throw if invalid)
     jwt.verify(refreshToken, refreshTokenSecret as string);
 
-    // Check if refresh token exists in database and is valid
+     // Check if refresh token exists in database and is valid
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: { user: true },
@@ -129,7 +129,7 @@ export const refreshAccessToken = async (refreshToken: string) => {
       throw error;
     }
 
-    // Create new access token
+     // Create new access token
     const user = storedToken.user;
     const newAccessToken = createJWTToken(user.id, user.email, user.role);
 
@@ -156,13 +156,13 @@ export const refreshAccessToken = async (refreshToken: string) => {
 
 export const logoutUser = async (refreshToken: string) => {
   try {
-    // Delete refresh token from database
+     // Delete refresh token from database
     await prisma.refreshToken.delete({
       where: { token: refreshToken },
     });
     return { success: true };
   } catch (error) {
-    // Token doesn't exist, that's okay for logout
+     // Token doesn't exist, that's okay for logout
     return { success: true };
   }
 };
