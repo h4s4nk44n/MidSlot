@@ -1,8 +1,41 @@
-import bcrypt from "bcrypt";
+import * as bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { RegisterInput, LoginInput } from "../validators/auth.validator";
-import jwt from "jsonwebtoken";
 import { ConflictError, UnauthorisedError } from "../utils/errors";
+
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d";
+
+const createJWTToken = (userId: string, email: string, role: string) => {
+  return jwt.sign(
+    { userId, email, role },
+    process.env.JWT_SECRET as string,
+    { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
+  );
+};
+
+const createRefreshToken = async (userId: string) => {
+  const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
+  const token = jwt.sign(
+    { userId },
+    refreshTokenSecret as string,
+    { expiresIn: REFRESH_TOKEN_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
+  );
+
+  const payload = jwt.decode(token) as any;
+  const expiresAt = new Date(payload.exp * 1000);
+
+  await prisma.refreshToken.create({
+    data: {
+      userId,
+      token,
+      expiresAt,
+    },
+  });
+
+  return token;
+};
 
 export const registerUser = async (data: RegisterInput) => {
   const { email, name, password, role } = data;
@@ -13,10 +46,10 @@ export const registerUser = async (data: RegisterInput) => {
     throw new ConflictError("Email already registered");
   }
 
-  // 2. Hashing the password
+  // 2. Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // 3. Create user (If it is doctor; then also create doctor profile)
+  // 3. Create user (and Doctor profile if role is DOCTOR)
   const user = await prisma.user.create({
     data: {
       email,
@@ -44,10 +77,10 @@ export const registerUser = async (data: RegisterInput) => {
 export const loginUser = async (data: LoginInput) => {
   const { email, password } = data;
 
-  // 1. Find the user
+  // 1. Find user
   const user = await prisma.user.findUnique({ where: { email } });
 
-  // 2. If user doesn't exist or wrong password (same error message)
+  // 2. If user does not exist or password is wrong — same error message (security)
   if (!user) {
     throw new UnauthorisedError("Invalid email or password");
   }
@@ -57,18 +90,70 @@ export const loginUser = async (data: LoginInput) => {
     throw new UnauthorisedError("Invalid email or password");
   }
 
-  // 3. create JWT
-  const token = jwt.sign(
-  { userId: user.id, email: user.email, role: user.role },
-  process.env.JWT_SECRET as string,
-  { expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as jwt.SignOptions["expiresIn"] }
-);
+  // 3. Create JWT token
+  const token = createJWTToken(user.id, user.email, user.role);
 
-  // 4. return without password
+  // 4. Create and save refresh token
+  const refreshToken = await createRefreshToken(user.id);
+
+  // 5. Return without password
   const { password: _, ...userWithoutPassword } = user;
 
   return {
     token,
+    refreshToken,
     user: userWithoutPassword,
   };
+};
+
+export const refreshAccessToken = async (refreshToken: string) => {
+  try {
+    const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
+    
+    jwt.verify(refreshToken, refreshTokenSecret as string);
+
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: { user: true },
+    });
+
+    if (!storedToken || storedToken.expiresAt < new Date()) {
+      const error = new Error("Invalid or expired refresh token") as any;
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const user = storedToken.user;
+    const newAccessToken = createJWTToken(user.id, user.email, user.role);
+
+    return {
+      token: newAccessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    };
+  } catch (error) {
+    const err = error as any;
+    const statusCode = err.statusCode || 401;
+    const message = err.message || "Failed to refresh token";
+    const refreshError = new Error(message) as any;
+    refreshError.statusCode = statusCode;
+    throw refreshError;
+  }
+};
+
+export const logoutUser = async (refreshToken: string) => {
+  try {
+    await prisma.refreshToken.delete({
+      where: { token: refreshToken },
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: true };
+  }
 };

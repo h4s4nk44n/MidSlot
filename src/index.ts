@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 import healthRouter from "./routes/health.routes";
 import errorHandler from "./middlewares/error.middlewares";
 import slotRouter from "./routes/slot.routes";
@@ -11,6 +12,20 @@ dotenv.config();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
+
+// CORS Configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
+  : ["http://localhost:3000", "http://localhost:3001"];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
