@@ -23,6 +23,7 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: false, // Do not skip successful requests
   skipFailedRequests: false, // Do not skip failed requests
+  skip: () => process.env.NODE_ENV === "test",
 });
 
 // Moderate rate limiter for general endpoints (30 requests per 15 minutes)
