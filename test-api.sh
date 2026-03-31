@@ -53,7 +53,7 @@ echo "========================================"
 
 # ─────────────────────────────────────────────
 echo ""
-echo "── MEDI-5: REGISTER ─────────────────────"
+echo "── MEDI-4: REGISTER ─────────────────────"
 # ─────────────────────────────────────────────
 
 # Geçerli DOCTOR kaydı
@@ -171,7 +171,7 @@ check "Patient /me → user dönmeli" '"email"' "$RES"
 
 # ─────────────────────────────────────────────
 echo ""
-echo "── MEDI-8: APPOINTMENT STATUS ───────────"
+echo "── MEDI-11: APPOINTMENT STATUS ───────────"
 # ─────────────────────────────────────────────
 
 # Token olmadan status güncelleme
