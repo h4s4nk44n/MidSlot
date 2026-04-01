@@ -1165,16 +1165,6 @@ For production deployment:
 
 ---
 
-## Team Members
-
-| Name              | Student ID | Role                  |
-| --------------- | ---------- | -------------------- |
-| Hasan Kaan     | (ID)       | Project Setup, README |
-| Onur            | (ID)       | Appointments Module   |
-| Taha            | (ID)       | Authentication Module |
-| Efe             | (ID)       | Availability/Booking  |
-| Aki             | (ID)       | Quality & Validation  |
-
 ---
 
 ## Development Tips
