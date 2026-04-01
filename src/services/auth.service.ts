@@ -113,7 +113,7 @@ export const refreshAccessToken = async (refreshToken: string) => {
     // Verify refresh token signature (will throw if invalid)
     jwt.verify(refreshToken, refreshTokenSecret as string);
 
-     // Check if refresh token exists in database and is valid
+    // Check if refresh token exists in database and is valid
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: { user: true },
@@ -123,7 +123,7 @@ export const refreshAccessToken = async (refreshToken: string) => {
       throw new UnauthorisedError("Invalid or expired refresh token");
     }
 
-     // Create new access token
+    // Create new access token
     const user = storedToken.user;
     const newAccessToken = createJWTToken(user.id, user.email, user.role);
 
@@ -148,7 +148,7 @@ export const refreshAccessToken = async (refreshToken: string) => {
 
 export const logoutUser = async (refreshToken: string) => {
   try {
-     // Delete refresh token from database
+    // Delete refresh token from database
     await prisma.refreshToken.delete({
       where: { token: refreshToken },
     });

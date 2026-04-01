@@ -5,7 +5,10 @@
       "Bash(cat .eslintrc* .eslintrc.js .eslintrc.json .eslintrc.yml)",
       "Bash(npx ts-node:*)",
       "Bash(npx prisma:*)",
-      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes, proceed\" npx prisma migrate reset --force)"
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes, proceed\" npx prisma migrate reset --force)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
