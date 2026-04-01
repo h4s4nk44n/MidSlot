@@ -17,8 +17,7 @@ export const apiLimiter = rateLimit({
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 requests per windowMs
-  message:
-    "Too many login/register attempts, please try again after 15 minutes.",
+  message: "Too many login/register attempts, please try again after 15 minutes.",
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false, // Do not skip successful requests

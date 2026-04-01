@@ -13,7 +13,7 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
 
   // Prisma known request errors
   if (err.name === "PrismaClientKnownRequestError") {
-    const prismaErr = err as any;
+    const prismaErr = err as Error & { code?: string; meta?: Record<string, unknown> };
 
     // Unique constraint violation (e.g. duplicate email)
     if (prismaErr.code === "P2002") {

@@ -9,25 +9,21 @@ const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d"; /
 
 // Helper to create JWT token
 const createJWTToken = (userId: string, email: string, role: string) => {
-  return jwt.sign(
-    { userId, email, role },
-    process.env.JWT_SECRET as string,
-    { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
-  );
+  return jwt.sign({ userId, email, role }, process.env.JWT_SECRET as string, {
+    expiresIn: JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+  });
 };
 
 // Helper to create refresh token
 const createRefreshToken = async (userId: string) => {
   const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
-  const token = jwt.sign(
-    { userId },
-    refreshTokenSecret as string,
-    { expiresIn: REFRESH_TOKEN_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
-  );
+  const token = jwt.sign({ userId }, refreshTokenSecret as string, {
+    expiresIn: REFRESH_TOKEN_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+  });
 
   // Calculate expiration date
-  const payload = jwt.decode(token) as any;
-  const expiresAt = new Date(payload.exp * 1000);
+  const payload = jwt.decode(token) as jwt.JwtPayload;
+  const expiresAt = new Date(payload.exp! * 1000);
 
   // Store refresh token in database
   await prisma.refreshToken.create({
@@ -113,7 +109,7 @@ export const loginUser = async (data: LoginInput) => {
 export const refreshAccessToken = async (refreshToken: string) => {
   try {
     const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
-    
+
     // Verify refresh token signature (will throw if invalid)
     jwt.verify(refreshToken, refreshTokenSecret as string);
 
@@ -124,9 +120,7 @@ export const refreshAccessToken = async (refreshToken: string) => {
     });
 
     if (!storedToken || storedToken.expiresAt < new Date()) {
-      const error = new Error("Invalid or expired refresh token") as any;
-      error.statusCode = 401;
-      throw error;
+      throw new UnauthorisedError("Invalid or expired refresh token");
     }
 
     // Create new access token
@@ -145,12 +139,10 @@ export const refreshAccessToken = async (refreshToken: string) => {
       },
     };
   } catch (error) {
-    const err = error as any;
-    const statusCode = err.statusCode || 401;
-    const message = err.message || "Failed to refresh token";
-    const refreshError = new Error(message) as any;
-    refreshError.statusCode = statusCode;
-    throw refreshError;
+    if (error instanceof UnauthorisedError) {
+      throw error;
+    }
+    throw new UnauthorisedError("Failed to refresh token");
   }
 };
 
@@ -161,7 +153,7 @@ export const logoutUser = async (refreshToken: string) => {
       where: { token: refreshToken },
     });
     return { success: true };
-  } catch (error) {
+  } catch (_error) {
     // Token doesn't exist, that's okay for logout
     return { success: true };
   }
