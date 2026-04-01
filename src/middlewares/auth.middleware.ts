@@ -10,11 +10,7 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const authenticate = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-): void => {
+export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -50,11 +46,7 @@ export const authorize = (...roles: string[]) => {
   };
 };
 
-export const getMe = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const getMe = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.userId },

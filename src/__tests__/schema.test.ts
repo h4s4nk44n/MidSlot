@@ -108,9 +108,7 @@ describe("Doctor model", () => {
 
     await prisma.doctor.create({ data: { userId: user.id } });
 
-    await expect(
-      prisma.doctor.create({ data: { userId: user.id } }),
-    ).rejects.toThrow();
+    await expect(prisma.doctor.create({ data: { userId: user.id } })).rejects.toThrow();
   });
 
   it("can be queried through the User relation", async () => {
@@ -392,7 +390,7 @@ describe("Cascade deletes", () => {
     const user = await prisma.user.create({
       data: { email: makeEmail(), password: "pw", name: "User RefreshToken", role: Role.PATIENT },
     });
-    
+
     await prisma.refreshToken.create({
       data: {
         userId: user.id,

@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { getDoctors, getDoctorProfile, getDoctorSlots, getDashboard } from "../controllers/doctor.controller";
+import {
+  getDoctors,
+  getDoctorProfile,
+  getDoctorSlots,
+  getDashboard,
+} from "../controllers/doctor.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
 
 const router = Router();

@@ -1,4 +1,4 @@
-# MediSlot
+# MediSlot 
 
 **Medical appointment scheduling platform** — A full-featured backend API for managing doctor-patient appointments, time slots, and healthcare provider profiles.
 

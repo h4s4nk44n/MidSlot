@@ -26,13 +26,20 @@ export class AppError extends Error {
     this.statusCode = statusCode;
     this.isOperational = isOperational;
     this.name = this.constructor.name;
-    (Error as any).captureStackTrace(this, this.constructor);
+    if ("captureStackTrace" in Error) {
+      (
+        Error.captureStackTrace as (
+          target: object,
+          constructor?: Function,
+        ) => void
+      )(this, this.constructor);
+    }
   }
 }
 
 // ====================== 4xx ==========================
 
-/*  400 - Bad Request  */export class BadRequestError extends AppError {
+/*  400 - Bad Request  */ export class BadRequestError extends AppError {
   details?: object;
   constructor(message = "Bad Request", details?: object) {
     super(message, 400);

@@ -3,11 +3,7 @@ import { registerSchema, loginSchema } from "../validators/auth.validator";
 import { registerUser, loginUser, refreshAccessToken, logoutUser } from "../services/auth.service";
 import { BadRequestError } from "../utils/errors";
 
-export const register = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parsed = registerSchema.safeParse(req.body);
 
@@ -23,11 +19,7 @@ export const register = async (
   }
 };
 
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parsed = loginSchema.safeParse(req.body);
 
@@ -43,11 +35,7 @@ export const login = async (
   }
 };
 
-export const refresh = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const refresh = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { refreshToken } = req.body;
 
@@ -63,11 +51,7 @@ export const refresh = async (
   }
 };
 
-export const logout = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { refreshToken } = req.body;
 

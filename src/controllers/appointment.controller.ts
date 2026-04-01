@@ -1,11 +1,17 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { NotFoundError, BadRequestError, InternalServerError, ForbiddenError } from "../utils/errors";
+import { AuthRequest } from "../middlewares/auth.middleware";
+import {
+  NotFoundError,
+  BadRequestError,
+  InternalServerError,
+  ForbiddenError,
+} from "../utils/errors";
 
 export const createAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { timeSlotId, notes } = req.body;
-    const patientId = (req as any).user.userId;
+    const patientId = (req as AuthRequest).user!.userId;
 
     const slot = await prisma.timeSlot.findUnique({
       where: { id: timeSlotId },
@@ -41,7 +47,7 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       message: "Appointment booked successfully.",
       data: appointment,
     });
-  } catch (error: any) {
+  } catch (_error) {
     throw new InternalServerError();
   }
 };
@@ -50,8 +56,8 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
   try {
     const id = req.params.id as string;
     const { status } = req.body;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = (req as AuthRequest).user!.userId;
+    const userRole = (req as AuthRequest).user!.role;
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -69,9 +75,7 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     };
 
     if (!allowedTransitions[appointment.status].includes(status)) {
-      throw new BadRequestError(
-        `Cannot transition from ${appointment.status} to ${status}.`
-      );
+      throw new BadRequestError(`Cannot transition from ${appointment.status} to ${status}.`);
     }
 
     if (status === "COMPLETED") {
@@ -114,8 +118,12 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     });
 
     res.status(200).json(updated);
-  } catch (error: any) {
-    if (error instanceof NotFoundError || error instanceof BadRequestError || error instanceof ForbiddenError) {
+  } catch (error) {
+    if (
+      error instanceof NotFoundError ||
+      error instanceof BadRequestError ||
+      error instanceof ForbiddenError
+    ) {
       res.status(error.statusCode).json({ message: error.message });
       return;
     }
