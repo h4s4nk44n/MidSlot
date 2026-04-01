@@ -30,7 +30,7 @@ export class AppError extends Error {
       (
         Error.captureStackTrace as (
           target: object,
-          constructor?: Function,
+          constructor?: abstract new (...args: unknown[]) => unknown,
         ) => void
       )(this, this.constructor);
     }
