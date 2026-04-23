@@ -8,6 +8,8 @@ import {
   InternalServerError,
   UnauthorisedError,
 } from "../utils/errors";
+import { paginate } from "../utils/pagination";
+import { listSlotsQuerySchema } from "../validations/slot.validation";
 
 export const createSlot = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -79,22 +81,57 @@ export const createSlot = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const getSlots = async (_req: Request, res: Response): Promise<void> => {
+export const getSlots = async (req: Request, res: Response): Promise<void> => {
   try {
-    const slots = await prisma.timeSlot.findMany({
-      where: { isBooked: false },
+    const parsed = listSlotsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid query parameters",
+        details: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const { page, pageSize, doctorId, specialization, date, from, to } = parsed.data;
+
+    const where: Record<string, unknown> = { isBooked: false };
+
+    if (doctorId) where.doctorId = doctorId;
+
+    if (specialization) {
+      where.doctor = { specialization };
+    }
+
+    // `date` takes precedence over `from`/`to` (documented in README).
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      where.startTime = { gte: start, lt: end };
+    } else if (from || to) {
+      const range: Record<string, Date> = {};
+      if (from) range.gte = new Date(from);
+      if (to) range.lt = new Date(to);
+      where.startTime = range;
+    }
+
+    const result = await paginate(prisma.timeSlot, {
+      where,
+      orderBy: [{ date: "asc" }, { startTime: "asc" }],
+      page,
+      pageSize,
       include: {
         doctor: {
           include: { user: { select: { name: true, email: true } } },
         },
       },
-      orderBy: { date: "asc" },
     });
 
-    res.status(200).json({
-      message: "Available time slots retrieved successfully.",
-      slots,
-    });
+    res.status(200).json(result);
   } catch (error) {
     console.error("[getSlots] Error:", error);
     throw new InternalServerError("Internal server error while fetching slots.");

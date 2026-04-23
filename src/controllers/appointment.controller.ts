@@ -7,74 +7,72 @@ import {
   ForbiddenError,
   ConflictError
 } from "../utils/errors";
+import { paginate } from "../utils/pagination";
+import { listMyAppointmentsQuerySchema } from "../validations/appointment.validation";
 
-// --- MEDI-38: Zeki Randevu Listeleyici (Role-Aware Listing) ---
+// --- MEDI-38: Role-Aware Listing + MEDI-50: Pagination/filters ---
 export const getMyAppointments = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user!.userId;
     const userRole = (req as AuthRequest).user!.role;
-    const { status, from, to, page, pageSize } = req.query;
 
-    // Rol bazlı filtreleme objesi (Kim neyi görebilir?)
-    let whereClause: any = {};
+    const parsed = listMyAppointmentsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid query parameters",
+        details: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const { page, pageSize, status, from, to } = parsed.data;
+
+    // Role-based scoping: patients see their own, doctors see theirs,
+    // receptionists see assigned doctors', admin sees all.
+    const whereClause: Record<string, unknown> = {};
 
     if (userRole === "PATIENT") {
       whereClause.patientId = userId;
     } else if (userRole === "DOCTOR") {
-      whereClause.doctor = { userId: userId };
+      whereClause.doctor = { userId };
     } else if (userRole === "RECEPTIONIST") {
       const assignments = await prisma.receptionistAssignment.findMany({
         where: { receptionistId: userId },
-        select: { doctorId: true }
+        select: { doctorId: true },
       });
-      const doctorIds = assignments.map(a => a.doctorId);
-      whereClause.doctorId = { in: doctorIds };
-    } else if (userRole === "ADMIN") {
-      // Admin her şeyi görür, whereClause boş kalır.
+      whereClause.doctorId = { in: assignments.map((a) => a.doctorId) };
     }
+    // ADMIN: no scoping added.
 
-    // Query parametrelerine göre ekstra filtreler
-    if (status) {
-      whereClause.status = status as string;
-    }
+    if (status) whereClause.status = status;
 
     if (from || to) {
-      whereClause.timeSlot = {};
-      if (from) whereClause.timeSlot.startTime = { gte: new Date(from as string) };
-      if (to) whereClause.timeSlot.endTime = { lte: new Date(to as string) };
+      const range: Record<string, Date> = {};
+      if (from) range.gte = new Date(from);
+      if (to) range.lt = new Date(to);
+      whereClause.timeSlot = { startTime: range };
     }
 
-    // Sayfalama (Pagination) ayarları
-    const take = pageSize ? parseInt(pageSize as string) : 10;
-    const skip = page ? (parseInt(page as string) - 1) * take : 0;
-
-    const appointments = await prisma.appointment.findMany({
+    const result = await paginate(prisma.appointment, {
       where: whereClause,
+      orderBy: { timeSlot: { startTime: "asc" } },
+      page,
+      pageSize,
       include: {
         patient: { select: { id: true, name: true, email: true } },
         timeSlot: true,
-        doctor: { select: { id: true, user: { select: { name: true } } } }
+        doctor: { select: { id: true, user: { select: { name: true } } } },
       },
-      skip,
-      take,
-      orderBy: { timeSlot: { startTime: 'asc' } }
     });
 
-    const total = await prisma.appointment.count({ where: whereClause });
-
-    res.status(200).json({
-      message: "Appointments fetched successfully.",
-      data: appointments,
-      meta: {
-        total,
-        page: page ? parseInt(page as string) : 1,
-        pageSize: take,
-        totalPages: Math.ceil(total / take)
-      }
-    });
-  } catch (error: any) {
-    console.error("🔥 LISTE HATASI:", error);
-    res.status(500).json({ message: "Internal Server Error", error: error.message });
+    res.status(200).json(result);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[getMyAppointments] Error:", error);
+    res.status(500).json({ message: "Internal Server Error", error: message });
   }
 };
 
