@@ -24,17 +24,52 @@ async function main(): Promise<void> {
   console.log("Starting database seed...\n");
 
   const hashedPassword = await bcrypt.hash("Password123!", 10);
+  const hashedAdminPassword = await bcrypt.hash("Admin@MediSlot2026!", 10);
 
   await prisma.$transaction(async (tx) => {
     // ── 1. Cleanup (reverse dependency order) ──────────────────────────────
     console.log("Cleaning up existing data...");
     await tx.appointment.deleteMany();
+    await tx.receptionistAssignment.deleteMany();
     await tx.timeSlot.deleteMany();
     await tx.doctor.deleteMany();
     await tx.user.deleteMany();
     console.log("   - All existing data removed\n");
 
-    // ── 2. Create doctor users ─────────────────────────────────────────────
+    // ── 2. Create admin user ───────────────────────────────────────────────
+    console.log("Creating admin user...");
+
+    const adminUser = await tx.user.create({
+      data: {
+        email: "admin@medislot.com",
+        password: hashedAdminPassword,
+        name: "System Administrator",
+        role: Role.ADMIN,
+      },
+    });
+
+    // ── 3. Create receptionist users ──────────────────────────────────────
+    console.log("Creating receptionist users...");
+
+    const receptionist1 = await tx.user.create({
+      data: {
+        email: "fatma.celik@medislot.com",
+        password: hashedPassword,
+        name: "Fatma Çelik",
+        role: Role.RECEPTIONIST,
+      },
+    });
+
+    const receptionist2 = await tx.user.create({
+      data: {
+        email: "emre.sahin@medislot.com",
+        password: hashedPassword,
+        name: "Emre Şahin",
+        role: Role.RECEPTIONIST,
+      },
+    });
+
+    // ── 4. Create doctor users ─────────────────────────────────────────────
     console.log("Creating doctor users...");
 
     const doctorUser1 = await tx.user.create({
@@ -64,7 +99,7 @@ async function main(): Promise<void> {
       },
     });
 
-    // ── 3. Create doctor profiles ──────────────────────────────────────────
+    // ── 5. Create doctor profiles ──────────────────────────────────────────
     console.log("Creating doctor profiles...");
 
     const doctor1 = await tx.doctor.create({
@@ -91,7 +126,7 @@ async function main(): Promise<void> {
       },
     });
 
-    // ── 4. Create patient users ────────────────────────────────────────────
+    // ── 5. Create patient users ────────────────────────────────────────────
     console.log("Creating patient users...");
 
     const patient1 = await tx.user.create({
@@ -121,7 +156,36 @@ async function main(): Promise<void> {
       },
     });
 
-    // ── 5. Create time slots ───────────────────────────────────────────────
+    // ── 6. Create receptionist assignments ────────────────────────────────
+    console.log("Creating receptionist assignments...");
+
+    // Fatma is assigned to Dr. Ayşe (Cardiology) and Dr. Mehmet (Dermatology)
+    await tx.receptionistAssignment.create({
+      data: {
+        receptionistId: receptionist1.id,
+        doctorId: doctor1.id,
+        assignedByUserId: adminUser.id,
+      },
+    });
+
+    await tx.receptionistAssignment.create({
+      data: {
+        receptionistId: receptionist1.id,
+        doctorId: doctor2.id,
+        assignedByUserId: adminUser.id,
+      },
+    });
+
+    // Emre is assigned to Dr. Zeynep (General Practice)
+    await tx.receptionistAssignment.create({
+      data: {
+        receptionistId: receptionist2.id,
+        doctorId: doctor3.id,
+        assignedByUserId: adminUser.id,
+      },
+    });
+
+    // ── 7. Create time slots ───────────────────────────────────────────────
     console.log("Creating time slots...");
 
     const pastDay1 = daysFromNow(-5);   // 5 days ago
@@ -299,7 +363,7 @@ async function main(): Promise<void> {
       },
     });
 
-    // ── 6. Create appointments ─────────────────────────────────────────────
+    // ── 8. Create appointments ─────────────────────────────────────────────
     console.log("Creating appointments...");
 
     // Appointment 1: COMPLETED – Ali saw Dr. Ayşe (past)
@@ -357,16 +421,19 @@ async function main(): Promise<void> {
       },
     });
 
-    // ── 7. Summary ─────────────────────────────────────────────────────────
+    // ── 9. Summary ─────────────────────────────────────────────────────────
     console.log("\nSeed completed successfully!");
-    console.log("   - Created 3 doctors, 3 patients, 15 slots, 5 appointments");
-    console.log("\nLogin credentials (all users):");
-    console.log("   Password: Password123!");
-    console.log("\n   Doctors:");
+    console.log("   - Created 1 admin, 2 receptionists, 3 doctors, 3 patients, 15 slots, 5 appointments, 3 assignments");
+    console.log("\n   Admin:");
+    console.log("   • admin@medislot.com          (Password: Admin@MediSlot2026!)");
+    console.log("\n   Receptionists (Password: Password123!):");
+    console.log("   • fatma.celik@medislot.com    → Dr. Ayşe (Cardiology), Dr. Mehmet (Dermatology)");
+    console.log("   • emre.sahin@medislot.com     → Dr. Zeynep (General Practice)");
+    console.log("\n   Doctors (Password: Password123!):");
     console.log("   • ayse.yilmaz@medislot.com   (Cardiology)");
     console.log("   • mehmet.kaya@medislot.com    (Dermatology)");
     console.log("   • zeynep.demir@medislot.com   (General Practice)");
-    console.log("\n   Patients:");
+    console.log("\n   Patients (Password: Password123!):");
     console.log("   • ali.vural@example.com");
     console.log("   • can.ozkan@example.com");
     console.log("   • deniz.arslan@example.com");
