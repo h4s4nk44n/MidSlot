@@ -2,6 +2,17 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/errors";
 
 const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+
+  // Express body-parser: payload size limit exceeded
+  const maybePayloadErr = err as Error & { type?: string; status?: number };
+  if (maybePayloadErr.type === "entity.too.large" || maybePayloadErr.status === 413) {
+    res.status(413).json({
+      error: "Request entity too large",
+      statusCode: 413,
+    });
+    return;
+  }
+  
   // Known operational errors (AppError subclasses)
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
