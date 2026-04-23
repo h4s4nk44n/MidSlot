@@ -11,6 +11,8 @@ datasource db {
 enum Role {
   DOCTOR
   PATIENT
+  ADMIN
+  RECEPTIONIST
 }
 
 enum AppointmentStatus {
@@ -32,6 +34,9 @@ model User {
   appointments   Appointment[]
   refreshTokens  RefreshToken[]
 
+  receptionistAssignments ReceptionistAssignment[] @relation("ReceptionistAssignments")
+  assignedAssignments     ReceptionistAssignment[] @relation("AssignedByUser")
+
   @@index([role])
 }
 
@@ -44,6 +49,7 @@ model Doctor {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   timeSlots    TimeSlot[]
   appointments Appointment[]
+  receptionistAssignments ReceptionistAssignment[]
 
   @@index([userId])
 }
@@ -82,6 +88,23 @@ model Appointment {
   @@index([patientId])
   @@index([doctorId])
   @@index([status])
+}
+
+model ReceptionistAssignment {
+  id               String   @id @default(uuid())
+  receptionistId   String
+  doctorId         String
+  assignedByUserId String
+  assignedAt       DateTime @default(now())
+
+  receptionist User   @relation("ReceptionistAssignments", fields: [receptionistId], references: [id], onDelete: Cascade)
+  doctor       Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  assignedBy   User   @relation("AssignedByUser", fields: [assignedByUserId], references: [id])
+
+  @@unique([receptionistId, doctorId])
+  @@index([receptionistId])
+  @@index([doctorId])
+  @@index([assignedByUserId])
 }
 
 model RefreshToken {
