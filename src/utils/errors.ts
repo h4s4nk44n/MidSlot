@@ -75,7 +75,7 @@ export class ConflictError extends AppError {
   }
 }
 
-/* 413 - Conflict  */
+/* 413 - Payload Too Large  */
 export class PayloadTooLargeError extends AppError {
   constructor(message = "Request entity too large") {
     super(message, 413);
@@ -93,6 +93,16 @@ export class TeaPotError extends AppError {
 export class UnprocessableEntityError extends AppError {
   constructor(message = "Unprocessable Entity") {
     super(message, 422);
+  }
+}
+
+/* 423 - Locked (account lockout)  */
+export class AccountLockedError extends AppError {
+  retryAfterSeconds?: number;
+
+  constructor(message = "Account is temporarily locked", retryAfterSeconds?: number) {
+    super(message, 423);
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
