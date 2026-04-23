@@ -27,12 +27,8 @@ export class AppError extends Error {
     this.isOperational = isOperational;
     this.name = this.constructor.name;
     if ("captureStackTrace" in Error) {
-      (
-        Error.captureStackTrace as (
-          target: object,
-          constructor?: abstract new (...args: unknown[]) => unknown,
-        ) => void
-      )(this, this.constructor);
+      const ctor = this.constructor as typeof AppError;
+      Error.captureStackTrace(this, ctor);
     }
   }
 }
