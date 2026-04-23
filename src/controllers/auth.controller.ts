@@ -8,8 +8,10 @@ export const register = async (req: Request, res: Response, next: NextFunction):
     const parsed = registerSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      throw new BadRequestError("Invalid input");
-      return;
+      const firstIssue = parsed.error.issues[0];
+      throw new BadRequestError(firstIssue?.message || "Invalid input", {
+        issues: parsed.error.issues,
+      });
     }
 
     const user = await registerUser(parsed.data);
@@ -24,8 +26,8 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     const parsed = loginSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      throw new BadRequestError("This slot is already booked.");
-      return;
+      const firstIssue = parsed.error.issues[0];
+      throw new BadRequestError(firstIssue?.message || "Invalid input");
     }
 
     const result = await loginUser(parsed.data);

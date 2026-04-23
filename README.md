@@ -349,7 +349,7 @@ Register a new user account (doctor or patient).
 **Fields:**
 - `email` (string, required): Valid email address
 - `name` (string, required): User's full name
-- `password` (string, required): Min 6 characters
+- `password` (string, required): Min 8 characters with complexity (at least one uppercase, one lowercase, and one digit; cannot be a common password or contain your name/email)
 - `role` (string, required): Either `"PATIENT"` or `"DOCTOR"`
 
 **Response (201 Created):**
