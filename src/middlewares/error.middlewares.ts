@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError } from "../utils/errors";
+import { AppError, AccountLockedError } from "../utils/errors";
 
 const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction): void => {
 
@@ -9,6 +9,17 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
     res.status(413).json({
       error: "Request entity too large",
       statusCode: 413,
+    });
+    return;
+  }
+  // Account lockout — include Retry-After header
+  if (err instanceof AccountLockedError) {
+    if (err.retryAfterSeconds !== undefined) {
+      res.setHeader("Retry-After", String(err.retryAfterSeconds));
+    }
+    res.status(err.statusCode).json({
+      error: err.message,
+      statusCode: err.statusCode,
     });
     return;
   }
