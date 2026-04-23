@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MediSlot — Sign in</title>
+<meta name="viewport" content="width=1280" />
+<link rel="stylesheet" href="frontend/design/shared.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { background: var(--surface-page); min-height: 100vh; overflow-x: hidden; }
+
+  .auth {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 560px;
+  }
+
+  /* --- Editorial left panel --- */
+  .auth-left {
+    background: var(--color-primary-900);
+    color: white;
+    padding: 40px 56px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-left::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 600px 400px at 80% 30%, oklch(35% 0.12 248 / 0.6), transparent 70%),
+      radial-gradient(ellipse 500px 300px at 10% 90%, oklch(42% 0.08 165 / 0.4), transparent 70%);
+    pointer-events: none;
+  }
+  .auth-left::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, oklch(100% 0 0 / 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(100% 0 0 / 0.04) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    pointer-events: none;
+  }
+  .auth-left > * { position: relative; z-index: 1; }
+
+  .al-brand {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .al-brand .brand-mark { background: white; }
+  .al-brand .brand-mark::before, .al-brand .brand-mark::after { background: var(--color-primary-900); }
+  .al-brand .bn {
+    font-family: var(--font-display);
+    font-size: var(--text-md);
+    letter-spacing: -0.015em;
+    color: white; font-weight: 500;
+  }
+  .al-brand .bn .slot { color: oklch(80% 0.05 248); font-style: italic; font-weight: 400; }
+
+  .al-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: oklch(82% 0.05 248);
+    margin-top: auto;
+  }
+  .al-headline {
+    font-family: var(--font-display);
+    font-size: 64px;
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    color: white;
+    font-weight: 400;
+    margin: 20px 0 24px;
+    max-width: 14ch;
+  }
+  .al-headline em { font-style: italic; color: oklch(85% 0.06 165); font-weight: 400; }
+  .al-sub {
+    font-size: var(--text-md);
+    line-height: 1.55;
+    color: oklch(85% 0.03 248);
+    max-width: 42ch;
+  }
+
+  .al-quote {
+    margin-top: 48px;
+    border-top: 1px solid oklch(100% 0 0 / 0.12);
+    padding-top: 24px;
+    max-width: 44ch;
+  }
+  .al-quote blockquote {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    line-height: 1.4;
+    color: white;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.005em;
+  }
+  .al-quote cite {
+    display: block;
+    margin-top: 16px;
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: oklch(75% 0.04 248);
+  }
+
+  .al-foot {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: oklch(70% 0.03 248);
+    padding-top: 48px;
+  }
+
+  /* --- Right form panel --- */
+  .auth-right {
+    background: var(--surface-page);
+    padding: 40px 80px;
+    display: flex;
+    flex-direction: column;
+  }
+  .ar-top {
+    display: flex; justify-content: flex-end;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .ar-card {
+    margin: auto 0;
+    max-width: 420px;
+    width: 100%;
+  }
+
+  .form-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--color-primary-600);
+    margin-bottom: 10px;
+  }
+  .form-title {
+    font-family: var(--font-display);
+    font-size: 38px;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    line-height: 1.05;
+  }
+  .form-title em { font-style: italic; color: var(--color-primary-700); }
+  .form-desc {
+    color: var(--text-muted);
+    font-size: var(--text-md);
+    margin-bottom: 28px;
+  }
+
+  .role-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--color-neutral-100);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    margin-bottom: 24px;
+  }
+  .role-tab {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    font-weight: 500;
+  }
+  .role-tab.active {
+    background: var(--surface-raised);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .form-stack { display: flex; flex-direction: column; gap: 14px; }
+  .form-stack .row { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-xs); }
+  .form-stack .row a.link { font-size: var(--text-xs); }
+
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 20px 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-subtle);
+  }
+  .divider::before, .divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--border-default);
+  }
+
+  .sso-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sso-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px; border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md); background: var(--surface-raised);
+    font-size: var(--text-sm); color: var(--text-primary);
+    cursor: pointer; font-family: var(--font-sans); font-weight: 500;
+  }
+  .sso-btn:hover { background: var(--color-neutral-50); }
+  .sso-btn svg { width: 16px; height: 16px; }
+
+  .ar-foot {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 28px;
+  }
+
+  .ar-legal {
+    display: flex; justify-content: space-between;
+    font-size: var(--text-xs); color: var(--text-muted);
+    padding-top: 24px; margin-top: auto;
+    border-top: 1px solid var(--border-default);
+  }
+  .ar-legal a { color: var(--text-body); text-decoration: none; }
+  .ar-legal a:hover { color: var(--text-primary); }
+
+  /* Compliance strip */
+  .compliance {
+    display: flex; gap: 16px; align-items: center;
+    margin-top: 24px;
+    padding: 12px 14px;
+    background: var(--color-neutral-50);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+  }
+  .compliance .cico {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface-raised); border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--color-primary-700);
+    flex: 0 0 28px;
+  }
+  .compliance .ct { font-size: var(--text-xs); color: var(--text-body); }
+  .compliance .ct strong { color: var(--text-primary); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="auth">
+  <!-- Editorial left -->
+  <aside class="auth-left">
+    <div class="al-brand">
+      <div class="brand-mark"></div>
+      <div class="bn">Medi<span class="slot">Slot</span></div>
+    </div>
+
+    <div>
+      <div class="al-eyebrow">Scheduling, unhurried.</div>
+      <h1 class="al-headline">Every <em>minute</em> of care, accounted for.</h1>
+      <p class="al-sub">MediSlot coordinates doctors, receptionists, and patients around one living schedule — so clinics run on rhythm, not on reminders.</p>
+    </div>
+
+    <div class="al-quote">
+      <blockquote>"Our receptionists book in half the clicks. Cancellations dropped 38% in the first quarter."</blockquote>
+      <cite>— Operations Lead · Riverside Medical Group</cite>
+    </div>
+
+    <div class="al-foot">
+      <span>v1.4.2 · build a91f2c</span>
+      <span>© 2026 MediSlot</span>
+    </div>
+  </aside>
+
+  <!-- Form right -->
+  <main class="auth-right">
+    <div class="ar-top">
+      New to MediSlot? <a class="link" href="#" style="margin-left:8px;">Request access</a>
+    </div>
+
+    <div class="ar-card">
+      <div class="form-eyebrow">Sign in · Step 1 of 1</div>
+      <h2 class="form-title">Welcome <em>back</em>.</h2>
+      <p class="form-desc">Sign in to manage appointments, availability, and patients.</p>
+
+      <div class="role-tabs" role="tablist" aria-label="Sign in as">
+        <button class="role-tab active">Staff</button>
+        <button class="role-tab">Patient</button>
+      </div>
+
+      <form class="form-stack" onsubmit="event.preventDefault();">
+        <div class="field">
+          <label class="field-label" for="email">Work email</label>
+          <input class="input" id="email" type="email" value="a.iyer@medislot.health" autocomplete="email" />
+        </div>
+        <div class="field">
+          <div class="row" style="margin-bottom:2px;">
+            <label class="field-label" for="pw">Password</label>
+            <a class="link" href="#">Forgot?</a>
+          </div>
+          <input class="input" id="pw" type="password" value="••••••••••••" />
+        </div>
+        <label style="display:flex; gap:10px; align-items:center; font-size: var(--text-sm); color: var(--text-body); cursor: pointer; margin-top: 4px;">
+          <span class="checkbox checked" aria-checked="true" role="checkbox">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          Keep me signed in on this device
+        </label>
+
+        <button type="submit" class="btn btn-primary btn-lg" style="margin-top: 8px;">
+          Sign in
+          <svg class="bico" viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+
+      <div class="divider">Or continue with</div>
+
+      <div class="sso-row">
+        <button class="sso-btn">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M22 12.06c0-.7-.06-1.37-.18-2H12.18v3.88h5.54c-.24 1.26-.98 2.32-2.08 3.03v2.52h3.36c1.96-1.8 3-4.45 3-7.43z" fill="#4285F4"/>
+            <path d="M12.18 22c2.8 0 5.15-.93 6.87-2.51l-3.36-2.52c-.93.62-2.12.99-3.51.99-2.7 0-4.98-1.81-5.8-4.25H2.9v2.6C4.62 19.74 8.13 22 12.18 22z" fill="#34A853"/>
+            <path d="M6.38 13.71a6.02 6.02 0 010-3.83V7.28H2.9a9.97 9.97 0 000 9.04l3.48-2.61z" fill="#FBBC05"/>
+            <path d="M12.18 5.92c1.53 0 2.9.52 3.98 1.54l2.98-2.98C17.33 2.84 14.98 2 12.18 2 8.13 2 4.62 4.26 2.9 7.28l3.48 2.6c.82-2.44 3.1-4.25 5.8-4.25z" fill="#EA4335"/>
+          </svg>
+          Google Workspace
+        </button>
+        <button class="sso-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M9 3v18"/>
+          </svg>
+          SSO / SAML
+        </button>
+      </div>
+
+      <div class="compliance">
+        <div class="cico">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 2L3 7v6c0 5 4 9 9 9s9-4 9-9V7l-9-5z"/>
+            <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="ct">
+          <strong>HIPAA-aligned · SOC 2 Type II</strong><br/>
+          Sessions are audited. PHI is encrypted at rest and in transit.
+        </div>
+      </div>
+    </div>
+
+    <div class="ar-legal">
+      <div>© 2026 MediSlot, Inc.</div>
+      <div style="display:flex; gap: 18px;">
+        <a href="#">Terms</a>
+        <a href="#">Privacy</a>
+        <a href="#">Status · <span style="color:var(--color-success-fg);">operational</span></a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Role tab toggle
+  document.querySelectorAll('.role-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+  document.querySelector('.checkbox').addEventListener('click', (e) => {
+    e.currentTarget.classList.toggle('checked');
+  });
+</script>
+
+</body>
+</html>

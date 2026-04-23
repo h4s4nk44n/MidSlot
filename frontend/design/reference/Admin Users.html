@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MediSlot — Admin · Users</title>
+<meta name="viewport" content="width=1280" />
+<link rel="stylesheet" href="frontend/design/shared.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: var(--color-neutral-50);
+    border-bottom: none;
+  }
+  .tb-left { display: flex; gap: 10px; align-items: center; }
+  .tb-right { display: flex; gap: 8px; align-items: center; }
+
+  .filter-tabs { display: flex; gap: 0; border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-raised); }
+  .ftab {
+    padding: 6px 12px; border: none; background: transparent;
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-muted);
+    cursor: pointer; border-right: 1px solid var(--border-default);
+    display: flex; gap: 6px; align-items: center;
+  }
+  .ftab:last-child { border-right: none; }
+  .ftab .n {
+    font-family: var(--font-mono); background: var(--color-neutral-100);
+    color: var(--text-body); padding: 1px 5px; border-radius: 3px; font-size: 10px;
+  }
+  .ftab.active { background: var(--color-primary-50); color: var(--color-primary-800); }
+  .ftab.active .n { background: var(--color-primary-100); color: var(--color-primary-800); }
+
+  .tb-search {
+    width: 320px; padding: 7px 12px 7px 32px;
+    border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    background: var(--surface-raised)
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") no-repeat 10px center;
+    background-size: 14px;
+  }
+  .tb-search:focus { outline: none; border-color: var(--color-primary-500); box-shadow: var(--shadow-focus); }
+
+  .table-wrap {
+    border: 1px solid var(--border-default);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    overflow: hidden;
+    background: var(--surface-raised);
+  }
+
+  /* Bulk bar */
+  .bulk {
+    padding: 10px 14px;
+    background: var(--color-primary-700);
+    color: white;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: var(--text-sm);
+  }
+  .bulk .bn { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: 0.04em; }
+  .bulk .ba { display: flex; gap: 6px; }
+  .bulk .bbtn {
+    padding: 5px 10px;
+    background: oklch(100% 0 0 / 0.14);
+    border: 1px solid oklch(100% 0 0 / 0.2);
+    color: white; font-family: var(--font-sans); font-weight: 500;
+    font-size: var(--text-xs); border-radius: 4px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .bulk .bbtn:hover { background: oklch(100% 0 0 / 0.22); }
+  .bulk .bbtn.destructive { background: oklch(55% 0.17 25); border-color: oklch(48% 0.17 25); }
+
+  .tbl.adm th:first-child, .tbl.adm td:first-child { padding-left: 20px; }
+  .tbl.adm th:last-child, .tbl.adm td:last-child { padding-right: 20px; }
+  .tbl.adm th { position: sticky; top: 0; }
+
+  .th-sort { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .th-sort.active { color: var(--color-primary-700); }
+  .th-sort svg { width: 9px; height: 9px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* Row action menu */
+  .row-menu {
+    position: absolute;
+    right: 20px; top: calc(100% - 6px);
+    transform: translateY(0);
+    background: var(--surface-overlay);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+    padding: 6px;
+    z-index: 30;
+    width: 220px;
+  }
+  .rm-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px;
+    font-size: var(--text-sm);
+    color: var(--text-body);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .rm-item:hover { background: var(--color-neutral-100); }
+  .rm-item svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.75; color: var(--text-muted); }
+  .rm-item .sh {
+    margin-left: auto;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle);
+  }
+  .rm-divider { height: 1px; background: var(--border-default); margin: 4px 0; }
+  .rm-item.destructive { color: var(--color-danger-fg); }
+  .rm-item.destructive svg { color: var(--color-danger-fg); }
+
+  /* Right drawer */
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 440px;
+    background: var(--surface-overlay);
+    border-left: 1px solid var(--border-default);
+    box-shadow: -12px 0 32px oklch(20% 0.04 248 / 0.08);
+    z-index: 45;
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform var(--dur-base) var(--ease-out);
+  }
+  .drawer.open { transform: translateX(0); }
+  .dr-head {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border-default);
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px;
+  }
+  .dr-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+  .dr-foot {
+    padding: 14px 24px;
+    border-top: 1px solid var(--border-default);
+    background: var(--color-neutral-50);
+    display: flex; justify-content: space-between; gap: 10px;
+  }
+
+  .dr-section {
+    margin-bottom: 24px;
+  }
+  .dr-section h4 {
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-muted); margin: 0 0 10px;
+    font-weight: 500;
+  }
+  .kv-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-default);
+    font-size: var(--text-sm);
+  }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row .k { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+  .kv-row .v { color: var(--text-primary); }
+
+  .assigned-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 6px 4px 4px;
+    background: var(--color-neutral-100);
+    border: 1px solid var(--border-default);
+    border-radius: 3px;
+    font-size: var(--text-xs);
+    margin: 2px 4px 2px 0;
+  }
+  .assigned-chip .av { width: 18px; height: 18px; font-size: 9px; }
+  .assigned-chip .x { margin-left: 2px; cursor: pointer; color: var(--text-muted); padding: 0 2px; }
+  .assigned-chip .x:hover { color: var(--color-danger-fg); }
+
+  /* Pagination */
+  .pagin {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px;
+    font-family: var(--font-mono); font-size: var(--text-xs);
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-default);
+    background: var(--surface-raised);
+  }
+  .page-btns { display: flex; gap: 4px; }
+  .pbtn {
+    padding: 4px 10px; border: 1px solid var(--border-default);
+    background: var(--surface-raised); font-family: var(--font-mono);
+    font-size: var(--text-xs); color: var(--text-body); cursor: pointer;
+    border-radius: 3px;
+  }
+  .pbtn.active { background: var(--color-primary-700); color: white; border-color: var(--color-primary-700); }
+  .pbtn:disabled { color: var(--text-subtle); cursor: not-allowed; }
+
+  .inv-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="app-top">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-name">Medi<span class="slot">Slot</span></div>
+    </div>
+    <div class="top-center">
+      <input class="search" placeholder="Search users, clinics, audit events…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="top-right">
+      <button class="icon-btn" aria-label="notifications">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0" stroke-linecap="round"/></svg>
+      </button>
+      <div class="me">
+        <div class="av">LC</div>
+        <div class="meinfo">
+          <div class="name">Liu Chen</div>
+          <div class="role">Admin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="side">
+    <div class="side-section">Admin</div>
+    <a class="side-item active" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="17" cy="8" r="3"/><path d="M21 21v-2a4 4 0 00-3-3.9"/></svg>
+      Users<span class="count">148</span>
+    </a>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8 8l8 8"/></svg>
+      Assignments
+    </a>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5 4 9 9 9s9-4 9-9V7l-9-5z"/></svg>
+      Specialties
+    </a>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+      Audit log
+    </a>
+
+    <div class="side-section">System</div>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M2 12h4M18 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      Settings
+    </a>
+  </aside>
+
+  <main class="main">
+    <div class="breadcrumb">Admin · Users</div>
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Users &amp; <em>assignments</em></h1>
+        <p class="page-sub">148 users across 4 roles. Assign receptionists to doctors and manage access from here.</p>
+      </div>
+      <div style="display:flex; gap: 10px;">
+        <button class="btn btn-secondary">
+          <svg class="bico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-primary">
+          <svg class="bico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+          Invite user
+        </button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="tb-left">
+        <div class="filter-tabs">
+          <button class="ftab active">All <span class="n">148</span></button>
+          <button class="ftab">Admins <span class="n">4</span></button>
+          <button class="ftab">Doctors <span class="n">22</span></button>
+          <button class="ftab">Receptionists <span class="n">11</span></button>
+          <button class="ftab">Patients <span class="n">111</span></button>
+        </div>
+        <input class="tb-search" placeholder="Search by name, email, or ID…" />
+      </div>
+      <div class="tb-right">
+        <button class="btn btn-ghost btn-sm">
+          <svg class="bico" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" stroke-linecap="round"/></svg>
+          Filters
+        </button>
+        <button class="btn btn-ghost btn-sm">
+          <svg class="bico" viewBox="0 0 24 24"><path d="M21 10H3M21 6H3M21 14H3M21 18H3" stroke-linecap="round"/></svg>
+          Columns
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <!-- Bulk bar (3 selected) -->
+      <div class="bulk">
+        <div class="bn"><strong>3 users selected</strong> · 2 receptionists, 1 doctor</div>
+        <div class="ba">
+          <button class="bbtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            Assign doctor
+          </button>
+          <button class="bbtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export
+          </button>
+          <button class="bbtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+            Deactivate
+          </button>
+          <button class="bbtn destructive">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke-linecap="round"/></svg>
+            Delete
+          </button>
+          <button class="bbtn" style="margin-left: 8px; background: transparent; border-color: oklch(100% 0 0 / 0.3);">Clear</button>
+        </div>
+      </div>
+
+      <table class="tbl adm">
+        <thead>
+          <tr>
+            <th style="width: 24px;"><span class="checkbox"></span></th>
+            <th><span class="th-sort active">Name
+              <svg viewBox="0 0 24 24"><path d="M6 9l6-6 6 6M6 15l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span></th>
+            <th>Role</th>
+            <th>Assigned doctor(s)</th>
+            <th>Status</th>
+            <th><span class="th-sort">Last active
+              <svg viewBox="0 0 24 24"><path d="M6 9l6-6 6 6M6 15l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span></th>
+            <th style="text-align: right; width: 60px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <tr class="selected">
+            <td><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av">MO</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Maya Okonkwo</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">m.okonkwo@medislot.health</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Receptionist</span></td>
+            <td class="mono">Dr. Iyer · Dr. Chen</td>
+            <td><span class="badge badge-completed">Active</span></td>
+            <td class="mono muted">2 min ago</td>
+            <td style="text-align:right; position: relative;">
+              <button class="btn btn-ghost btn-icon" onclick="openDrawer()">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+          <tr class="selected" style="position: relative;">
+            <td><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av sage">AI</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Dr. Anjali Iyer</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">a.iyer@medislot.health</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Doctor</span></td>
+            <td class="muted" style="font-style: italic;">— (doctors don't have receptionist assignments here)</td>
+            <td><span class="badge badge-completed">Active</span></td>
+            <td class="mono muted">14 min ago</td>
+            <td style="text-align:right; position: relative;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+              <!-- row menu (open) -->
+              <div class="row-menu" role="menu">
+                <div class="rm-item">
+                  <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Edit profile
+                  <span class="sh">⌘E</span>
+                </div>
+                <div class="rm-item">
+                  <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M17 11l2 2 4-4"/></svg>
+                  Assign receptionists
+                </div>
+                <div class="rm-item">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+                  View schedule
+                </div>
+                <div class="rm-item">
+                  <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/></svg>
+                  Impersonate
+                </div>
+                <div class="rm-divider"></div>
+                <div class="rm-item">
+                  <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/></svg>
+                  Reset password
+                </div>
+                <div class="rm-item">
+                  <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  Deactivate
+                </div>
+                <div class="rm-divider"></div>
+                <div class="rm-item destructive">
+                  <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                  Delete user
+                  <span class="sh">⌘⌫</span>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="selected">
+            <td><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av">DE</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Damilola Eze</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">d.eze@medislot.health</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Receptionist</span></td>
+            <td class="mono">Dr. Benhaddou · Dr. Whitfield · +1</td>
+            <td><span class="badge badge-completed">Active</span></td>
+            <td class="mono muted">37 min ago</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+          <tr>
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av sage">LC</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Dr. Luka Čović</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">l.covic@medislot.health</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Doctor</span></td>
+            <td class="muted" style="font-style: italic;">—</td>
+            <td><span class="badge badge-completed">Active</span></td>
+            <td class="mono muted">1 hr ago</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+          <tr>
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av">TH</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Tomás Herrera</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">t.herrera@gmail.test</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Patient</span></td>
+            <td class="muted">—</td>
+            <td>
+              <span class="badge badge-pending">Invite sent</span>
+              <span class="inv-chip" style="margin-left:8px;">4d ago</span>
+            </td>
+            <td class="mono muted">never</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+          <tr>
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av">NS</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Nyasha Sibanda</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">n.sibanda@medislot.health</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Receptionist</span></td>
+            <td class="mono">Dr. Kapoor</td>
+            <td><span class="badge badge-completed">Active</span></td>
+            <td class="mono muted">yesterday</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+          <tr>
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av sage">MB</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Dr. Mariam Benhaddou</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">m.benhaddou@medislot.health</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Doctor</span></td>
+            <td class="muted" style="font-style: italic;">—</td>
+            <td><span class="badge badge-pending">On leave</span></td>
+            <td class="mono muted">6 days ago</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+          <tr>
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av">LC</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Liu Chen</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">l.chen@medislot.health</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Admin</span></td>
+            <td class="muted">—</td>
+            <td><span class="badge badge-completed">Active</span></td>
+            <td class="mono muted">just now</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+          <tr>
+            <td><span class="checkbox"></span></td>
+            <td>
+              <div class="uwho" style="display:flex; gap:10px; align-items:center;">
+                <div class="av">JO</div>
+                <div>
+                  <div style="color:var(--text-primary); font-weight: 500;">Javier Ortiz</div>
+                  <div style="color:var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs);">j.ortiz@outlook.test</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Patient</span></td>
+            <td class="muted">—</td>
+            <td><span class="badge badge-cancelled">Deactivated</span></td>
+            <td class="mono muted">3 mo ago</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost btn-icon">
+                <svg class="bico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+              </button>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <div class="pagin">
+        <div>Showing <strong style="color: var(--text-primary);">1–9</strong> of 148</div>
+        <div class="page-btns">
+          <button class="pbtn" disabled>←</button>
+          <button class="pbtn active">1</button>
+          <button class="pbtn">2</button>
+          <button class="pbtn">3</button>
+          <span style="padding: 0 4px;">…</span>
+          <button class="pbtn">17</button>
+          <button class="pbtn">→</button>
+        </div>
+        <div>
+          <select class="select" style="width: 110px; font-size: var(--text-xs); padding: 4px 24px 4px 8px;">
+            <option>9 per page</option>
+            <option>25 per page</option>
+            <option>50 per page</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Right drawer -->
+<div class="drawer open" id="drawer">
+  <div class="dr-head">
+    <div style="display: flex; gap: 14px; align-items: center;">
+      <div class="av xl">MO</div>
+      <div>
+        <div style="font-family: var(--font-display); font-size: var(--text-xl); font-weight: 500; color: var(--text-primary); letter-spacing: -0.01em;">Maya Okonkwo</div>
+        <div style="font-family: var(--font-mono); font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); margin-top: 4px;">Receptionist · ID UR-0184</div>
+      </div>
+    </div>
+    <button class="close-btn" style="position: static;" onclick="document.getElementById('drawer').classList.remove('open')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="dr-body">
+    <div class="dr-section">
+      <h4>Account</h4>
+      <div class="kv-row"><div class="k">Email</div><div class="v">m.okonkwo@medislot.health</div></div>
+      <div class="kv-row"><div class="k">Phone</div><div class="v">+1 (415) 555-0184</div></div>
+      <div class="kv-row"><div class="k">Status</div><div class="v"><span class="badge badge-completed">Active</span></div></div>
+      <div class="kv-row"><div class="k">Joined</div><div class="v">Mar 4, 2025</div></div>
+      <div class="kv-row"><div class="k">Last active</div><div class="v">2 min ago</div></div>
+    </div>
+
+    <div class="dr-section">
+      <h4>Assigned doctors <span style="font-family: var(--font-sans); text-transform: none; letter-spacing: 0; color: var(--text-subtle); font-size: var(--text-xs); font-weight: 400;">· can book on behalf of</span></h4>
+      <div style="margin-top: 4px;">
+        <span class="assigned-chip">
+          <div class="av sage">AI</div>
+          Dr. Anjali Iyer
+          <span class="x">×</span>
+        </span>
+        <span class="assigned-chip">
+          <div class="av sage">LC</div>
+          Dr. Luka Čović
+          <span class="x">×</span>
+        </span>
+      </div>
+      <div style="margin-top: 12px;">
+        <select class="select">
+          <option>+ Assign another doctor…</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="dr-section">
+      <h4>Permissions</h4>
+      <label style="display:flex; gap: 10px; align-items: center; padding: 8px 0; font-size: var(--text-sm); cursor: pointer;">
+        <span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span>Book / cancel appointments on behalf of patients</span>
+      </label>
+      <label style="display:flex; gap: 10px; align-items: center; padding: 8px 0; font-size: var(--text-sm); cursor: pointer;">
+        <span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span>View assigned doctors' schedules</span>
+      </label>
+      <label style="display:flex; gap: 10px; align-items: center; padding: 8px 0; font-size: var(--text-sm); cursor: pointer;">
+        <span class="checkbox"></span>
+        <span>Edit patient contact information</span>
+      </label>
+    </div>
+
+    <div class="dr-section">
+      <h4>Recent activity</h4>
+      <div style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-body); line-height: 1.8;">
+        <div style="display:flex; justify-content:space-between;"><span>Booked · Priya R. w/ Dr. Iyer</span><span style="color:var(--text-muted);">2m ago</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Cancelled · Margarethe L.</span><span style="color:var(--text-muted);">48m ago</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Logged in · Chrome / macOS</span><span style="color:var(--text-muted);">3h ago</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Booked · Tomás H. w/ Dr. Iyer</span><span style="color:var(--text-muted);">yesterday</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dr-foot">
+    <button class="btn btn-ghost">Deactivate</button>
+    <div style="display:flex; gap: 8px;">
+      <button class="btn btn-secondary">Cancel</button>
+      <button class="btn btn-primary">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openDrawer() { document.getElementById('drawer').classList.add('open'); }
+  document.querySelectorAll('.checkbox').forEach(cb => cb.addEventListener('click', e => {
+    e.currentTarget.classList.toggle('checked');
+  }));
+</script>
+</body>
+</html>

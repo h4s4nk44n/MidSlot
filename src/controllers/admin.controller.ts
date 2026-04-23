@@ -8,6 +8,7 @@ import {
   deleteAssignment,
   listAssignments,
 } from "../services/admin.service";
+import { listAdminUsersQuerySchema } from "../validations/admin.validation";
 
 export const getUsers = async (
   req: AuthRequest,
@@ -15,9 +16,20 @@ export const getUsers = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { role } = req.query;
-    const users = await listUsers(role ? String(role) : undefined);
-    res.status(200).json(users);
+    const parsed = listAdminUsersQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid query parameters",
+        details: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+    const { role, q, page, pageSize } = parsed.data;
+    const result = await listUsers({ role, q, page, pageSize });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
