@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import healthRouter from "./routes/health.routes";
 import errorHandler from "./middlewares/error.middlewares";
+import { apiLimiter } from "./middlewares/rateLimiter.middleware";
 import slotRouter from "./routes/slot.routes";
 import authRouter from "./routes/auth.routes";
 import appointmentRouter from "./routes/appointment.routes";
@@ -45,6 +46,7 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ limit: "10kb", extended: true }));
 
 /* <Routes> */
+app.use("/api", apiLimiter);
 app.use("/api/auth", authRouter);
 app.use("/api", slotRouter);
 app.use("/api", appointmentRouter);
