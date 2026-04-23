@@ -7,6 +7,8 @@ import slotRouter from "./routes/slot.routes";
 import authRouter from "./routes/auth.routes";
 import appointmentRouter from "./routes/appointment.routes";
 import doctorRouter from "./routes/doctor.routes";
+import adminRouter from "./routes/admin.routes";
+import receptionistRouter from "./routes/receptionist.routes";
 
 dotenv.config();
 
@@ -35,6 +37,8 @@ app.use("/api/auth", authRouter);
 app.use("/api", slotRouter);
 app.use("/api", appointmentRouter);
 app.use("/api/doctors", doctorRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/receptionist", receptionistRouter);
 app.use("/api", healthRouter);
 /* </Routes> */
 

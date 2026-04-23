@@ -8,7 +8,11 @@
       "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes, proceed\" npx prisma migrate reset --force)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }
