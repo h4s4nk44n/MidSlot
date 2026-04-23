@@ -71,7 +71,18 @@ export class ConflictError extends AppError {
   }
 }
 
+<<<<<<< Updated upstream
 /*  418 - I'm a Teapot  */
+=======
+/* 413 - Conflict  */
+export class PayloadTooLargeError extends AppError {
+  constructor(message = "Request entity too large") {
+    super(message, 413);
+  }
+}
+
+/* 418 - I'm a Teapot  */
+>>>>>>> Stashed changes
 export class TeaPotError extends AppError {
   constructor(message = "I'm a teapot :)") {
     super(message, 418);
