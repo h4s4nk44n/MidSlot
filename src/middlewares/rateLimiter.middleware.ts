@@ -1,7 +1,12 @@
 import rateLimit, { Options } from "express-rate-limit";
+import { Request } from "express";
 
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const RETRY_AFTER_SECONDS = 15 * 60; // 900 s
+
+// Disable rate limiting per-test when needed (e.g. account lockout tests
+// that intentionally hammer /auth/login more than 5x).
+const isRateLimitDisabled = () => process.env.DISABLE_RATE_LIMIT === "true";
 
 function make429Handler(message: string): Options["handler"] {
   return (_req, res) => {
@@ -22,6 +27,7 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: false,
   skipFailedRequests: false,
+  skip: () => isRateLimitDisabled(),
   handler: make429Handler("Too many login/register attempts, please try again after 15 minutes."),
 });
 
@@ -32,7 +38,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   // Mounted at /api so req.path is relative (e.g. /health, not /api/health)
-  skip: (req) => req.path === "/health",
+  skip: (req: Request) => req.path === "/health" || isRateLimitDisabled(),
   handler: make429Handler("Too many requests from this IP, please try again later."),
 });
 
@@ -42,5 +48,6 @@ export const moderateLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => isRateLimitDisabled(),
   handler: make429Handler("Too many requests from this IP, please try again later."),
 });

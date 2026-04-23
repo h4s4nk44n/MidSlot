@@ -394,6 +394,12 @@ Authenticate and receive a JWT token.
 
 **Request Body:**
 
+**Account Lockout:**
+After 5 consecutive failed login attempts, the account is locked for 15 minutes.
+A locked account returns `423 Locked` with a `Retry-After` header indicating
+the number of seconds until the lockout expires. The same status is returned
+even if a subsequent request carries the correct password.
+
 ```json
 {
   "email": "ali.vural@example.com",
@@ -422,6 +428,7 @@ Authenticate and receive a JWT token.
 | ------ | -------------------- | ------------------------------- |
 | 400    | Invalid input        | Missing/malformed fields        |
 | 401    | Invalid email or password | Wrong credentials           |
+| 423    | Account temporarily locked | Too many failed login attempts  |
 
 **Example cURL:**
 

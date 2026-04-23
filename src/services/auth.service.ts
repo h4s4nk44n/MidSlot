@@ -2,7 +2,7 @@ import * as bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { RegisterInput, LoginInput } from "../validators/auth.validator";
-import { ConflictError, UnauthorisedError } from "../utils/errors";
+import { ConflictError, UnauthorisedError, AccountLockedError } from "../utils/errors";
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h"; // Default 1 hour
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d"; // Default 7 day
@@ -74,6 +74,8 @@ export const registerUser = async (data: RegisterInput) => {
   return user;
 };
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 export const loginUser = async (data: LoginInput) => {
   const { email, password } = data;
 
@@ -85,24 +87,65 @@ export const loginUser = async (data: LoginInput) => {
     throw new UnauthorisedError("Invalid email or password");
   }
 
-  const passwordMatch = await bcrypt.compare(password, user.password);
-  if (!passwordMatch) {
-    throw new UnauthorisedError("Invalid email or password");
+  // 3. Check lockout status BEFORE verifying password
+  //    (Even a correct password must not bypass an active lock.)
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    const retryAfterSeconds = Math.ceil(
+      (user.lockedUntil.getTime() - Date.now()) / 1000,
+    );
+    throw new AccountLockedError(
+      "Account is temporarily locked due to too many failed login attempts",
+      retryAfterSeconds,
+    );
   }
 
-  // 3. Create JWT token
+  const passwordMatch = await bcrypt.compare(password, user.password);
+  if (!passwordMatch) {
+    const newAttempts = user.loginAttempts + 1;
+
+    if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+      // Lock the account and reset counter
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          loginAttempts: 0,
+          lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
+        },
+      });
+
+      throw new AccountLockedError(
+        "Account is temporarily locked due to too many failed login attempts",
+        Math.ceil(LOCKOUT_DURATION_MS / 1000),
+      );
+    }
+  // Not at limit yet, just increment
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { loginAttempts: newAttempts },
+    });
+    throw new UnauthorisedError("Invalid email or password");
+  }
+   // 4. Success — reset attempts & lockout
+  if (user.loginAttempts > 0 || user.lockedUntil) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { loginAttempts: 0, lockedUntil: null },
+    });
+  }
+
+  // 5. Create JWT token
   const token = createJWTToken(user.id, user.email, user.role);
 
-  // 4. Create and save refresh token
+  // 6. Create and save refresh token
   const refreshToken = await createRefreshToken(user.id);
 
-  // 5. Return without password
-  const { password: _, ...userWithoutPassword } = user;
+  // 7. Return without password
+    const { password: _, loginAttempts: __, lockedUntil: ___, ...userWithoutSensitiveFields } = user;
 
   return {
     token,
     refreshToken,
-    user: userWithoutPassword,
+    user: userWithoutSensitiveFields, // like password
   };
 };
 
