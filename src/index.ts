@@ -36,6 +36,22 @@ app.use("/api", slotRouter);
 app.use("/api", appointmentRouter);
 app.use("/api/doctors", doctorRouter);
 app.use("/api", healthRouter);
+
+app.get("/", (_req: Request, res: Response) => {
+  res.json({
+    message: "MidSlot API is running",
+    routes: [
+      "/api/health",
+      "/api/auth/register",
+      "/api/auth/login",
+      "/api/auth/me",
+      "/api/slots",
+      "/api/appointments",
+      "/api/doctors",
+    ],
+  });
+});
+
 /* </Routes> */
 
 app.use((_req: Request, res: Response) => {
