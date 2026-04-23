@@ -75,6 +75,13 @@ export class ConflictError extends AppError {
   }
 }
 
+/* 413 - Conflict  */
+export class PayloadTooLargeError extends AppError {
+  constructor(message = "Request entity too large") {
+    super(message, 413);
+  }
+}
+
 /* 418 - I'm a Teapot  */
 export class TeaPotError extends AppError {
   constructor(message = "I'm a teapot :)") {
