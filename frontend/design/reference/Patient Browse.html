@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MediSlot — Browse doctors</title>
+<meta name="viewport" content="width=1280" />
+<link rel="stylesheet" href="frontend/design/shared.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  /* Filter rail */
+  .filters { display: flex; flex-direction: column; gap: 22px; }
+  .filter-group .flbl {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    display: flex; justify-content: space-between;
+  }
+  .filter-group .flbl .clr { color: var(--color-primary-600); font-family: var(--font-sans); text-transform: none; letter-spacing: 0; cursor: pointer; }
+
+  .opts { display: flex; flex-direction: column; gap: 6px; }
+  .opt {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+    font-size: var(--text-sm);
+    color: var(--text-body);
+    cursor: pointer;
+  }
+  .opt .count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+
+  .range-tag { display: flex; align-items: center; justify-content: space-between; font-size: var(--text-xs); color: var(--text-muted); font-family: var(--font-mono); margin-top: 6px; }
+  .range-bar {
+    height: 4px; background: var(--color-neutral-150); border-radius: 2px; margin-top: 6px; position: relative;
+  }
+  .range-bar .fill { position: absolute; left: 15%; right: 25%; top: 0; bottom: 0; background: var(--color-primary-600); border-radius: 2px; }
+  .range-bar .knob {
+    position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%;
+    background: white; border: 2px solid var(--color-primary-700); transform: translateY(-50%);
+  }
+  .range-bar .knob.l { left: calc(15% - 6px); }
+  .range-bar .knob.r { left: calc(75% - 6px); }
+
+  /* Results head */
+  .results-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 0 16px; border-bottom: 1px solid var(--border-default); margin-bottom: 20px;
+  }
+  .results-count {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    font-weight: 500;
+  }
+  .results-count .num { font-family: var(--font-mono); color: var(--color-primary-700); font-weight: 500; margin-right: 4px; }
+  .results-count .muted { color: var(--text-muted); font-weight: 400; font-family: var(--font-sans); font-size: var(--text-sm); margin-left: 8px; }
+
+  .chiprow { display: flex; flex-wrap: wrap; gap: 6px; margin-left: 20px; }
+  .f-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 6px 4px 10px;
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    letter-spacing: 0.06em;
+    background: var(--color-primary-50);
+    border: 1px solid var(--color-primary-200);
+    color: var(--color-primary-800);
+    border-radius: 3px;
+  }
+  .f-chip .x { cursor: pointer; padding: 2px; border-radius: 2px; opacity: 0.6; }
+  .f-chip .x:hover { opacity: 1; background: var(--color-primary-100); }
+
+  .view-toggle {
+    display: flex; gap: 0; padding: 3px; background: var(--color-neutral-100);
+    border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  }
+  .vt-btn {
+    padding: 5px 10px; font-family: var(--font-mono); font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-muted); background: transparent; border: none;
+    border-radius: 3px; cursor: pointer;
+  }
+  .vt-btn.active { background: var(--surface-raised); color: var(--text-primary); box-shadow: var(--shadow-xs); }
+
+  /* Doctor card grid */
+  .doc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .doc {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 18px;
+    transition: all var(--dur-fast) var(--ease-out);
+    cursor: pointer;
+    position: relative;
+  }
+  .doc:hover { border-color: var(--color-primary-300); box-shadow: var(--shadow-sm); }
+  .doc.selected { border-color: var(--color-primary-500); box-shadow: 0 0 0 1px var(--color-primary-500); }
+
+  .doc .portrait {
+    width: 72px; height: 72px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--color-primary-100), var(--color-sage-100));
+    color: var(--color-primary-800);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    border: 1px solid var(--color-primary-200);
+    position: relative;
+    flex: 0 0 72px;
+  }
+  .doc .avail-dot {
+    position: absolute; bottom: 4px; right: 4px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--color-success-solid);
+    border: 2px solid var(--surface-raised);
+  }
+  .doc .avail-dot.soon { background: var(--color-warning-solid); }
+  .doc .avail-dot.none { background: var(--color-neutral-400); }
+
+  .doc .info { min-width: 0; }
+  .doc .dname {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    margin-bottom: 2px;
+  }
+  .doc .dspec {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-primary-700);
+    margin-bottom: 8px;
+  }
+  .doc .meta {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: var(--text-xs); color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .doc .meta span {
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .doc .meta svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 1.75; }
+
+  .doc .slots {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: auto;
+  }
+  .slot-pill {
+    padding: 6px 4px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-primary-800);
+    background: var(--color-primary-50);
+    border: 1px solid var(--color-primary-200);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--dur-instant) var(--ease-out);
+  }
+  .slot-pill:hover { background: var(--color-primary-100); border-color: var(--color-primary-300); }
+  .slot-pill.sage { color: var(--color-sage-800); background: var(--color-sage-50); border-color: var(--color-sage-200); }
+  .slot-pill.sage:hover { background: var(--color-sage-100); }
+  .slot-pill.more {
+    background: transparent; color: var(--text-muted);
+    border: 1px dashed var(--border-strong);
+  }
+
+  .doc .foot {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid var(--border-default);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .doc .foot .next-slot { color: var(--color-primary-700); font-weight: 500; }
+
+  /* Rating stars */
+  .rating { display: inline-flex; align-items: center; gap: 4px; }
+  .rating svg { width: 11px; height: 11px; fill: var(--color-warning-solid); stroke: none; }
+  .rating .num { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); font-weight: 500; }
+
+  /* === Booking modal === */
+  .booking { width: 720px; max-width: 90vw; max-height: 92vh; }
+  .booking-head {
+    padding: 24px 28px 18px;
+    border-bottom: 1px solid var(--border-default);
+    display: grid; grid-template-columns: 56px 1fr auto; gap: 16px; align-items: center;
+  }
+  .booking-head .bh-portrait {
+    width: 56px; height: 56px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--color-primary-100), var(--color-sage-100));
+    color: var(--color-primary-800);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 22px;
+    border: 1px solid var(--color-primary-200);
+  }
+  .booking-head .bh-name {
+    font-family: var(--font-display); font-size: 24px; font-weight: 500;
+    color: var(--text-primary); letter-spacing: -0.015em;
+  }
+  .booking-head .bh-sub {
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-muted); margin-top: 4px;
+  }
+
+  .booking-body { padding: 24px 28px; display: grid; grid-template-columns: 1fr 300px; gap: 28px; overflow-y: auto; }
+
+  .week-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .week-label {
+    font-family: var(--font-display); font-size: var(--text-lg);
+    font-weight: 500; color: var(--text-primary); letter-spacing: -0.01em;
+  }
+  .week-nav { display: flex; gap: 4px; align-items: center; }
+  .wn-btn {
+    width: 28px; height: 28px; border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); background: var(--surface-raised);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text-body);
+  }
+  .wn-btn:hover { background: var(--color-neutral-50); }
+
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .day-col {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    background: var(--surface-raised);
+    overflow: hidden;
+  }
+  .day-head {
+    padding: 10px 0;
+    text-align: center;
+    background: var(--color-neutral-50);
+    border-bottom: 1px solid var(--border-default);
+  }
+  .day-head .dow {
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+  .day-head .dnum {
+    font-family: var(--font-display); font-size: var(--text-lg);
+    color: var(--text-primary); margin-top: 2px; font-weight: 500;
+  }
+  .day-head.today .dnum {
+    color: white;
+    background: var(--color-primary-700);
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: var(--text-sm);
+    margin-top: 4px;
+  }
+  .day-slots {
+    padding: 6px 6px 10px;
+    display: flex; flex-direction: column; gap: 4px;
+    min-height: 180px;
+  }
+  .t-slot {
+    padding: 6px 4px;
+    text-align: center;
+    font-family: var(--font-mono); font-size: var(--text-xs);
+    background: var(--color-primary-50);
+    color: var(--color-primary-800);
+    border: 1px solid var(--color-primary-200);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .t-slot:hover { background: var(--color-primary-100); }
+  .t-slot.selected {
+    background: var(--color-primary-700);
+    color: white;
+    border-color: var(--color-primary-800);
+  }
+  .t-slot.unavailable {
+    background: transparent;
+    color: var(--text-subtle);
+    border-color: var(--border-default);
+    cursor: not-allowed;
+    text-decoration: line-through;
+  }
+  .empty-day {
+    text-align: center;
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    color: var(--text-subtle);
+    padding: 40px 0;
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  /* Right summary */
+  .summary {
+    background: var(--color-neutral-50);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 18px;
+    position: sticky; top: 0;
+    align-self: start;
+  }
+  .s-chip {
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--color-primary-600); margin-bottom: 14px;
+  }
+  .s-line { padding: 10px 0; border-bottom: 1px solid var(--border-default); }
+  .s-line:last-of-type { border-bottom: none; }
+  .s-line .lbl {
+    font-family: var(--font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+  .s-line .val {
+    font-size: var(--text-sm); color: var(--text-primary);
+    font-weight: 500; margin-top: 2px;
+  }
+  .s-line .val.mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+  .s-ready {
+    margin-top: 10px; padding-top: 14px;
+    border-top: 1px dashed var(--border-strong);
+    font-size: var(--text-xs); color: var(--text-muted);
+    font-style: italic; line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Top -->
+  <div class="app-top">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-name">Medi<span class="slot">Slot</span></div>
+    </div>
+    <div class="top-center">
+      <input class="search" placeholder="Search doctors, specialties, locations…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="top-right">
+      <button class="icon-btn" aria-label="notifications">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0" stroke-linecap="round"/></svg>
+        <span class="dot"></span>
+      </button>
+      <div class="me">
+        <div class="av">PR</div>
+        <div class="meinfo">
+          <div class="name">Priya Ramaswamy</div>
+          <div class="role">Patient</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar (Patient) -->
+  <aside class="side">
+    <div class="side-section">Care</div>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+      My appointments
+      <span class="count">2</span>
+    </a>
+    <a class="side-item active" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      Browse doctors
+    </a>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+      Book a visit
+    </a>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><path d="M20 7L9 18l-5-5"/></svg>
+      Past visits
+    </a>
+
+    <div class="side-section">Me</div>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>
+      Profile
+    </a>
+    <a class="side-item" href="#">
+      <svg class="sico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/></svg>
+      Messages
+    </a>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="breadcrumb">Care · Browse doctors</div>
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Find a <em>doctor</em></h1>
+        <p class="page-sub">Search 148 clinicians across 18 specialties. Filter by availability, insurance, and location — then book in under a minute.</p>
+      </div>
+      <button class="btn btn-primary">
+        <svg class="bico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        New booking
+      </button>
+    </div>
+
+    <div class="layout">
+      <!-- Filters -->
+      <aside class="filters">
+        <div class="filter-group">
+          <div class="flbl"><span>Specialty</span><span class="clr">Reset</span></div>
+          <div class="opts">
+            <label class="opt"><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Cardiology <span class="count">14</span></label>
+            <label class="opt"><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Internal medicine <span class="count">22</span></label>
+            <label class="opt"><span class="checkbox"></span> Dermatology <span class="count">9</span></label>
+            <label class="opt"><span class="checkbox"></span> Pediatrics <span class="count">17</span></label>
+            <label class="opt"><span class="checkbox"></span> Neurology <span class="count">6</span></label>
+            <label class="opt" style="color:var(--color-primary-700); font-weight: 500; cursor: pointer;">Show all 18 →</label>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <div class="flbl"><span>Availability</span></div>
+          <div class="opts">
+            <label class="opt"><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> This week <span class="count">32</span></label>
+            <label class="opt"><span class="checkbox"></span> Next week <span class="count">41</span></label>
+            <label class="opt"><span class="checkbox"></span> Evenings <span class="count">12</span></label>
+            <label class="opt"><span class="checkbox"></span> Weekends <span class="count">5</span></label>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <div class="flbl"><span>Distance</span></div>
+          <div class="range-bar">
+            <div class="fill"></div>
+            <div class="knob l"></div>
+            <div class="knob r"></div>
+          </div>
+          <div class="range-tag">
+            <span>1.5 mi</span><span>7.5 mi</span>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <div class="flbl"><span>Insurance</span></div>
+          <div class="opts">
+            <label class="opt"><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Aetna</label>
+            <label class="opt"><span class="checkbox"></span> Blue Cross</label>
+            <label class="opt"><span class="checkbox"></span> United Healthcare</label>
+            <label class="opt"><span class="checkbox"></span> Cigna</label>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <div class="flbl"><span>Visit type</span></div>
+          <div class="opts">
+            <label class="opt"><span class="checkbox checked"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> In-person</label>
+            <label class="opt"><span class="checkbox"></span> Virtual / telehealth</label>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Results -->
+      <div>
+        <div class="results-head">
+          <div style="display:flex; align-items:center;">
+            <div class="results-count"><span class="num">28</span>doctors match<span class="muted">in Cardiology · Internal medicine</span></div>
+            <div class="chiprow">
+              <span class="f-chip">Cardiology <span class="x">×</span></span>
+              <span class="f-chip">Internal medicine <span class="x">×</span></span>
+              <span class="f-chip">Aetna <span class="x">×</span></span>
+              <span class="f-chip">This week <span class="x">×</span></span>
+            </div>
+          </div>
+          <div style="display:flex; gap: 12px; align-items: center;">
+            <select class="select" style="width: 180px; font-size: var(--text-xs); padding: 6px 28px 6px 10px;">
+              <option>Sort · Earliest available</option>
+              <option>Sort · Rating</option>
+              <option>Sort · Distance</option>
+            </select>
+            <div class="view-toggle">
+              <button class="vt-btn active">Grid</button>
+              <button class="vt-btn">List</button>
+              <button class="vt-btn">Map</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-grid">
+
+          <div class="doc selected" onclick="openBooking()">
+            <div class="portrait">
+              AI
+              <span class="avail-dot"></span>
+            </div>
+            <div class="info">
+              <div class="dname">Dr. Anjali Iyer</div>
+              <div class="dspec">Cardiology · 14 yrs</div>
+              <div class="meta">
+                <span><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg> Clinic 3 · 1.8 mi</span>
+                <span class="rating"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg> <span class="num">4.9</span></span>
+              </div>
+              <div class="slots">
+                <div class="slot-pill">Wed 9:30</div>
+                <div class="slot-pill">Wed 11:00</div>
+                <div class="slot-pill">Thu 14:15</div>
+                <div class="slot-pill more">+8 more</div>
+              </div>
+              <div class="foot">
+                <span>Accepts Aetna, BCBS</span>
+                <span class="next-slot">Next · Wed 9:30</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="doc" onclick="openBooking()">
+            <div class="portrait" style="background: linear-gradient(135deg, var(--color-sage-100), var(--color-primary-100));">
+              LC
+              <span class="avail-dot"></span>
+            </div>
+            <div class="info">
+              <div class="dname">Dr. Luka Čović</div>
+              <div class="dspec">Internal medicine · 8 yrs</div>
+              <div class="meta">
+                <span><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg> Clinic 1 · 2.4 mi</span>
+                <span class="rating"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg> <span class="num">4.8</span></span>
+              </div>
+              <div class="slots">
+                <div class="slot-pill sage">Wed 16:00</div>
+                <div class="slot-pill sage">Thu 08:30</div>
+                <div class="slot-pill sage">Thu 10:00</div>
+                <div class="slot-pill more">+6 more</div>
+              </div>
+              <div class="foot">
+                <span>Accepts Aetna, Cigna, UHC</span>
+                <span class="next-slot">Next · Wed 16:00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="doc" onclick="openBooking()">
+            <div class="portrait">
+              MB
+              <span class="avail-dot soon"></span>
+            </div>
+            <div class="info">
+              <div class="dname">Dr. Mariam Benhaddou</div>
+              <div class="dspec">Cardiology · 11 yrs</div>
+              <div class="meta">
+                <span><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg> Clinic 2 · 3.1 mi</span>
+                <span class="rating"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg> <span class="num">4.7</span></span>
+              </div>
+              <div class="slots">
+                <div class="slot-pill">Fri 13:00</div>
+                <div class="slot-pill">Fri 15:30</div>
+                <div class="slot-pill">Mon 09:00</div>
+                <div class="slot-pill more">+3 more</div>
+              </div>
+              <div class="foot">
+                <span>Accepts Aetna</span>
+                <span class="next-slot">Next · Fri 13:00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="doc" onclick="openBooking()">
+            <div class="portrait" style="background: linear-gradient(135deg, var(--color-sage-100), var(--color-primary-100));">
+              RK
+              <span class="avail-dot"></span>
+            </div>
+            <div class="info">
+              <div class="dname">Dr. Rohan Kapoor</div>
+              <div class="dspec">Internal medicine · 6 yrs</div>
+              <div class="meta">
+                <span><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg> Clinic 3 · 1.8 mi</span>
+                <span class="rating"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg> <span class="num">4.9</span></span>
+              </div>
+              <div class="slots">
+                <div class="slot-pill sage">Today 15:00</div>
+                <div class="slot-pill sage">Today 16:30</div>
+                <div class="slot-pill sage">Wed 08:00</div>
+                <div class="slot-pill more">+11 more</div>
+              </div>
+              <div class="foot">
+                <span>Accepts all major</span>
+                <span class="next-slot">Next · Today 15:00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="doc" onclick="openBooking()">
+            <div class="portrait">
+              EO
+              <span class="avail-dot none"></span>
+            </div>
+            <div class="info">
+              <div class="dname">Dr. Eleni Ostrowska</div>
+              <div class="dspec">Cardiology · 19 yrs</div>
+              <div class="meta">
+                <span><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg> Clinic 1 · 2.4 mi</span>
+                <span class="rating"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg> <span class="num">5.0</span></span>
+              </div>
+              <div class="slots">
+                <div class="slot-pill" style="opacity:0.5; cursor:not-allowed; text-decoration: line-through;">No slots</div>
+                <div class="slot-pill more" style="grid-column: span 3;">Join waitlist</div>
+              </div>
+              <div class="foot">
+                <span style="color:var(--text-subtle);">Waitlist only · 11 ahead</span>
+                <span class="next-slot" style="color:var(--text-muted);">Next · May 6</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="doc" onclick="openBooking()">
+            <div class="portrait" style="background: linear-gradient(135deg, var(--color-sage-100), var(--color-primary-100));">
+              JW
+              <span class="avail-dot"></span>
+            </div>
+            <div class="info">
+              <div class="dname">Dr. James Whitfield</div>
+              <div class="dspec">Internal medicine · 22 yrs</div>
+              <div class="meta">
+                <span><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg> Clinic 2 · 3.1 mi</span>
+                <span class="rating"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg> <span class="num">4.6</span></span>
+              </div>
+              <div class="slots">
+                <div class="slot-pill sage">Thu 11:30</div>
+                <div class="slot-pill sage">Thu 14:00</div>
+                <div class="slot-pill sage">Fri 09:30</div>
+                <div class="slot-pill more">+4 more</div>
+              </div>
+              <div class="foot">
+                <span>Accepts BCBS, UHC</span>
+                <span class="next-slot">Next · Thu 11:30</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="display:flex; justify-content: center; margin-top: 28px;">
+          <button class="btn btn-secondary">Load 22 more doctors</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ======== Booking Modal ======== -->
+<div class="scrim" id="scrim" style="display:none;" onclick="if(event.target===this)closeBooking()">
+  <div class="dialog booking">
+    <div class="booking-head">
+      <div class="bh-portrait">AI</div>
+      <div>
+        <div class="bh-name">Dr. Anjali Iyer</div>
+        <div class="bh-sub">Cardiology · Clinic 3 · Rm 218</div>
+      </div>
+      <button class="close-btn" onclick="closeBooking()" aria-label="close" style="position: static;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="booking-body">
+      <div>
+        <div class="week-head">
+          <div class="week-label">Week of 20 Apr 2026</div>
+          <div class="week-nav">
+            <button class="wn-btn" aria-label="prev week">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span style="font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); padding: 0 8px; text-transform: uppercase; letter-spacing: 0.1em;">Apr 20 – 24</span>
+            <button class="wn-btn" aria-label="next week">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="week-grid">
+          <div class="day-col">
+            <div class="day-head"><div class="dow">Mon</div><div class="dnum">20</div></div>
+            <div class="day-slots">
+              <div class="t-slot unavailable">09:00</div>
+              <div class="t-slot unavailable">11:30</div>
+              <div class="t-slot unavailable">14:00</div>
+            </div>
+          </div>
+          <div class="day-col">
+            <div class="day-head"><div class="dow">Tue</div><div class="dnum">21</div></div>
+            <div class="day-slots">
+              <div class="t-slot unavailable">10:00</div>
+              <div class="t-slot unavailable">13:30</div>
+            </div>
+          </div>
+          <div class="day-col">
+            <div class="day-head today"><div class="dow">Wed</div><div class="dnum">22</div></div>
+            <div class="day-slots">
+              <div class="t-slot selected">09:30</div>
+              <div class="t-slot">11:00</div>
+              <div class="t-slot">14:15</div>
+              <div class="t-slot">15:45</div>
+            </div>
+          </div>
+          <div class="day-col">
+            <div class="day-head"><div class="dow">Thu</div><div class="dnum">23</div></div>
+            <div class="day-slots">
+              <div class="t-slot">08:00</div>
+              <div class="t-slot">09:15</div>
+              <div class="t-slot">10:30</div>
+              <div class="t-slot">14:15</div>
+              <div class="t-slot">16:00</div>
+            </div>
+          </div>
+          <div class="day-col">
+            <div class="day-head"><div class="dow">Fri</div><div class="dnum">24</div></div>
+            <div class="day-slots">
+              <div class="t-slot">09:30</div>
+              <div class="t-slot">13:00</div>
+              <div class="empty-day" style="padding: 20px 0;">+5</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <div class="field">
+            <label class="field-label">Reason for visit</label>
+            <textarea class="textarea" placeholder="Briefly describe the reason for this appointment…">Follow-up for last month's echocardiogram results.</textarea>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+            <div class="field">
+              <label class="field-label">Visit type</label>
+              <select class="select"><option>In-person · Clinic 3</option><option>Telehealth</option></select>
+            </div>
+            <div class="field">
+              <label class="field-label">Insurance</label>
+              <select class="select"><option>Aetna · PPO (on file)</option><option>Self-pay</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <aside class="summary">
+        <div class="s-chip">Your booking</div>
+        <div class="s-line">
+          <div class="lbl">Doctor</div>
+          <div class="val">Dr. Anjali Iyer</div>
+        </div>
+        <div class="s-line">
+          <div class="lbl">When</div>
+          <div class="val">Wed 22 Apr · 9:30 AM</div>
+          <div class="val mono" style="color:var(--text-muted); font-weight:400; margin-top:2px;">09:30 – 09:45 · 15 min</div>
+        </div>
+        <div class="s-line">
+          <div class="lbl">Where</div>
+          <div class="val">Clinic 3 · Rm 218</div>
+          <div class="val" style="color:var(--text-muted); font-weight:400; font-size: var(--text-xs); margin-top:2px;">411 Oak St, Floor 2</div>
+        </div>
+        <div class="s-line">
+          <div class="lbl">Estimated cost</div>
+          <div class="val mono">$25 copay</div>
+        </div>
+        <div class="s-ready">
+          You'll get an email confirmation and a reminder 24 hours before. Cancel or reschedule free up to 12 hours prior.
+        </div>
+      </aside>
+    </div>
+
+    <div class="dialog-foot">
+      <button class="btn btn-ghost" onclick="closeBooking()">Cancel</button>
+      <button class="btn btn-primary">
+        <svg class="bico" viewBox="0 0 24 24"><path d="M5 12l5 5L20 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Confirm booking
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openBooking() { document.getElementById('scrim').style.display = 'flex'; }
+  function closeBooking() { document.getElementById('scrim').style.display = 'none'; }
+
+  // Open on load to show the modal in the reference
+  setTimeout(openBooking, 50);
+
+  document.querySelectorAll('.t-slot:not(.unavailable)').forEach(s => {
+    s.addEventListener('click', () => {
+      document.querySelectorAll('.t-slot').forEach(x => x.classList.remove('selected'));
+      s.classList.add('selected');
+    });
+  });
+  document.querySelectorAll('.checkbox').forEach(cb => {
+    cb.addEventListener('click', () => cb.classList.toggle('checked'));
+  });
+</script>
+</body>
+</html>

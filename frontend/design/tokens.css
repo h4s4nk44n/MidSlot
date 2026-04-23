@@ -1,0 +1,188 @@
+/* ============================================================
+   MediSlot Design Tokens
+   "Clinical Quiet" — editorial medical aesthetic
+   All values in oklch for perceptual uniformity.
+   ============================================================ */
+
+:root {
+  /* -------- BRAND: Ink Blue (primary) -------- */
+  --color-primary-50:  oklch(97.5% 0.012 248);
+  --color-primary-100: oklch(94%   0.024 248);
+  --color-primary-200: oklch(87%   0.048 248);
+  --color-primary-300: oklch(76%   0.072 248);
+  --color-primary-400: oklch(62%   0.096 248);
+  --color-primary-500: oklch(48%   0.110 248);
+  --color-primary-600: oklch(39%   0.108 248); /* default */
+  --color-primary-700: oklch(32%   0.094 248);
+  --color-primary-800: oklch(25%   0.076 248);
+  --color-primary-900: oklch(19%   0.056 248);
+  --color-primary-950: oklch(14%   0.036 248);
+
+  /* -------- SUPPORTING: Sage Green -------- */
+  --color-sage-50:  oklch(97%   0.012 165);
+  --color-sage-100: oklch(93%   0.028 165);
+  --color-sage-200: oklch(86%   0.048 165);
+  --color-sage-300: oklch(75%   0.066 165);
+  --color-sage-400: oklch(63%   0.074 165);
+  --color-sage-500: oklch(52%   0.072 165); /* default */
+  --color-sage-600: oklch(43%   0.066 165);
+  --color-sage-700: oklch(35%   0.056 165);
+  --color-sage-800: oklch(28%   0.044 165);
+  --color-sage-900: oklch(22%   0.032 165);
+
+  /* -------- NEUTRALS: Warm paper (not cold gray) -------- */
+  --color-neutral-0:   oklch(99.2% 0.004 80);  /* page */
+  --color-neutral-50:  oklch(97.8% 0.005 80);  /* surface */
+  --color-neutral-100: oklch(95.5% 0.006 80);  /* surface raised */
+  --color-neutral-150: oklch(93%   0.007 80);
+  --color-neutral-200: oklch(90%   0.008 80);  /* border */
+  --color-neutral-300: oklch(82%   0.010 80);
+  --color-neutral-400: oklch(68%   0.010 80);  /* muted text */
+  --color-neutral-500: oklch(56%   0.010 80);
+  --color-neutral-600: oklch(45%   0.010 80);
+  --color-neutral-700: oklch(36%   0.010 80);  /* body */
+  --color-neutral-800: oklch(27%   0.010 80);
+  --color-neutral-900: oklch(18%   0.010 80);  /* heading */
+  --color-neutral-950: oklch(12%   0.008 80);  /* ink */
+
+  /* -------- SEMANTIC -------- */
+  --color-success-bg:     oklch(95%   0.028 150);
+  --color-success-border: oklch(80%   0.070 150);
+  --color-success-fg:     oklch(38%   0.080 150);
+  --color-success-solid:  oklch(48%   0.100 150);
+
+  --color-warning-bg:     oklch(96%   0.040 82);
+  --color-warning-border: oklch(82%   0.100 82);
+  --color-warning-fg:     oklch(42%   0.100 62);
+  --color-warning-solid:  oklch(65%   0.140 70);
+
+  --color-danger-bg:      oklch(96%   0.022 25);
+  --color-danger-border:  oklch(82%   0.070 25);
+  --color-danger-fg:      oklch(42%   0.130 25);
+  --color-danger-solid:   oklch(55%   0.170 25);
+
+  --color-info-bg:        oklch(95%   0.022 248);
+  --color-info-border:    oklch(82%   0.060 248);
+  --color-info-fg:        var(--color-primary-700);
+
+  /* -------- SURFACE LEVELS -------- */
+  --surface-page:    var(--color-neutral-0);
+  --surface-panel:   var(--color-neutral-50);
+  --surface-raised:  #ffffff;
+  --surface-sunken:  var(--color-neutral-100);
+  --surface-overlay: #ffffff;
+  --surface-inverse: var(--color-primary-900);
+
+  /* -------- TEXT -------- */
+  --text-primary:   var(--color-neutral-950);
+  --text-body:      var(--color-neutral-800);
+  --text-muted:     var(--color-neutral-500);
+  --text-subtle:    var(--color-neutral-400);
+  --text-on-solid:  var(--color-neutral-0);
+  --text-link:      var(--color-primary-700);
+
+  /* -------- BORDER -------- */
+  --border-default: oklch(90% 0.010 248);
+  --border-strong:  oklch(82% 0.014 248);
+  --border-focus:   var(--color-primary-500);
+  --border-inverse: var(--color-primary-800);
+
+  /* -------- TYPE -------- */
+  --font-display: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale (desktop-first, 1280px) */
+  --text-2xs: 11px;
+  --text-xs:  12px;
+  --text-sm:  13px;
+  --text-base:14px;
+  --text-md:  15px;
+  --text-lg:  17px;
+  --text-xl:  20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 38px;
+  --text-5xl: 48px;
+
+  --leading-tight:  1.15;
+  --leading-snug:   1.3;
+  --leading-normal: 1.5;
+  --leading-relaxed:1.65;
+
+  --tracking-tightest: -0.03em;
+  --tracking-tight:    -0.015em;
+  --tracking-normal:    0em;
+  --tracking-wide:      0.04em;
+  --tracking-widest:    0.14em;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+  --weight-bold:    700;
+
+  /* -------- SPACING (4px base) -------- */
+  --space-0:  0;
+  --space-px: 1px;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* -------- RADIUS (crisp, low) -------- */
+  --radius-none: 0;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;   /* default */
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* -------- ELEVATION (hairline, not floaty) -------- */
+  --shadow-xs:
+    0 0 0 1px oklch(90% 0.010 248 / 0.8);
+  --shadow-sm:
+    0 1px 0 oklch(90% 0.010 248 / 0.6),
+    0 0 0 1px oklch(90% 0.010 248 / 0.8);
+  --shadow-md:
+    0 1px 2px oklch(30% 0.040 248 / 0.06),
+    0 4px 8px oklch(30% 0.040 248 / 0.04),
+    0 0 0 1px oklch(90% 0.010 248 / 0.9);
+  --shadow-lg:
+    0 2px 4px oklch(30% 0.040 248 / 0.05),
+    0 12px 24px oklch(30% 0.040 248 / 0.08),
+    0 0 0 1px oklch(88% 0.010 248 / 0.9);
+  --shadow-overlay:
+    0 4px 8px oklch(30% 0.040 248 / 0.08),
+    0 24px 48px oklch(20% 0.040 248 / 0.18),
+    0 0 0 1px oklch(86% 0.012 248 / 0.9);
+  --shadow-focus:
+    0 0 0 3px oklch(76% 0.072 248 / 0.35);
+
+  /* -------- MOTION -------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* -------- LAYOUT -------- */
+  --layout-sidebar: 232px;
+  --layout-topnav: 56px;
+  --layout-content-max: 1280px;
+  --layout-gutter: 24px;
+}

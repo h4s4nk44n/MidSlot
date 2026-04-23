@@ -1,12 +1,36 @@
 import { prisma } from "../lib/prisma";
 import { Role } from "../generated/prisma";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
+import { paginate, Paginated } from "../utils/pagination";
 
-export const listUsers = async (role?: string) => {
-  const where = role && Object.values(Role).includes(role as Role) ? { role: role as Role } : {};
+interface ListUsersOptions {
+  role?: string;
+  q?: string;
+  page: number;
+  pageSize: number;
+}
 
-  return prisma.user.findMany({
+export const listUsers = async (
+  opts: ListUsersOptions,
+): Promise<Paginated<unknown>> => {
+  const { role, q, page, pageSize } = opts;
+
+  const where: Record<string, unknown> = {};
+  if (role && Object.values(Role).includes(role as Role)) {
+    where.role = role as Role;
+  }
+  if (q) {
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  return paginate(prisma.user, {
     where,
+    orderBy: { createdAt: "desc" },
+    page,
+    pageSize,
     select: {
       id: true,
       email: true,
@@ -14,7 +38,6 @@ export const listUsers = async (role?: string) => {
       role: true,
       createdAt: true,
     },
-    orderBy: { createdAt: "desc" },
   });
 };
 

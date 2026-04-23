@@ -296,6 +296,18 @@ curl http://localhost:3000/api/health
 # Response: {"status":"ok"}
 ```
 
+### Frontend (Next.js)
+
+The web app lives in [`frontend/`](./frontend) (Next.js App Router + Tailwind).
+
+```bash
+cd frontend
+cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL
+npm install
+npm run dev                        # http://localhost:3000
+# or: npm run build && npm start   # production (standalone output)
+```
+
 ---
 
 ## API Documentation
@@ -507,22 +519,28 @@ curl -X GET http://localhost:3000/api/auth/me \
 
 ### GET `/slots`
 
-Get all available (unbooked) time slots from all doctors.
+Get paginated available (unbooked) time slots. Supports filtering by doctor,
+specialization, and date/range.
 
 **Auth:** Public
 
 **Query Parameters:**
 
-| Parameter | Type | Description |
-| --------- | ---- | ----------- |
-| (none)    | N/A  | No parameters |
+| Parameter        | Type    | Default | Description |
+| ---------------- | ------- | ------- | ----------- |
+| `page`           | int     | `1`     | Page number (>= 1) |
+| `pageSize`       | int     | `20`    | Items per page (1–100) |
+| `doctorId`       | uuid    | —       | Filter by doctor id |
+| `specialization` | string  | —       | Exact-match specialization filter |
+| `date`           | ISO date | —      | Single-day filter (takes precedence over from/to) |
+| `from`           | ISO datetime | —  | Start of range (inclusive) |
+| `to`             | ISO datetime | —  | End of range (exclusive) |
 
 **Response (200 OK):**
 
 ```json
 {
-  "message": "Available time slots retrieved successfully.",
-  "slots": [
+  "items": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440100",
       "doctorId": "550e8400-e29b-41d4-a716-446655440010",
@@ -530,33 +548,33 @@ Get all available (unbooked) time slots from all doctors.
       "startTime": "2026-04-02T09:00:00.000Z",
       "endTime": "2026-04-02T10:00:00.000Z",
       "isBooked": false,
-      "createdAt": "2026-03-30T10:00:00.000Z",
       "doctor": {
-        "id": "550e8400-e29b-41d4-a716-446655440010",
-        "userId": "550e8400-e29b-41d4-a716-446655440001",
         "specialization": "Cardiology",
-        "bio": "Board-certified cardiologist...",
-        "user": {
-          "name": "Dr. Ayşe Yılmaz",
-          "email": "ayse.yilmaz@medislot.com"
-        }
+        "user": { "name": "Dr. Ayşe Yılmaz", "email": "ayse.yilmaz@medislot.com" }
       }
     }
-  ]
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "total": 47,
+  "totalPages": 3
 }
 ```
-
-**Error Responses:**
-
-| Status | Error                           | Cause |
-| ------ | ------------------------------- | ----- |
-| 500    | Internal server error while fetching slots | Database error |
 
 **Example cURL:**
 
 ```bash
-curl -X GET http://localhost:3000/api/slots
+# First page, default page size
+curl -X GET "http://localhost:3000/api/slots"
+
+# Filter by doctor, single-day window
+curl -X GET "http://localhost:3000/api/slots?doctorId=550e8400-e29b-41d4-a716-446655440010&date=2026-05-01&page=1&pageSize=10"
+
+# Filter by specialization + datetime range
+curl -X GET "http://localhost:3000/api/slots?specialization=Cardiology&from=2026-05-01T00:00:00Z&to=2026-05-08T00:00:00Z"
 ```
+
+**Validation errors** return **400** with a list of `{ field, message }` entries.
 
 ---
 
@@ -789,67 +807,115 @@ curl -X POST http://localhost:3000/api/appointments \
 
 ---
 
-## Doctor Endpoints
+### GET `/appointments/me`
 
-### GET `/doctors`
-
-Get list of all doctors (optionally filtered by specialization).
+Paginated list of appointments scoped to the authenticated caller:
+- **PATIENT** — their own appointments
+- **DOCTOR** — appointments assigned to them
+- **RECEPTIONIST** — appointments for doctors they are assigned to
+- **ADMIN** — all appointments
 
 **Auth:** Authenticated
 
 **Query Parameters:**
 
-| Parameter        | Type   | Description                 |
-| ---------------- | ------ | --------------------------- |
-| `specialization` | string | Filter by specialization (optional) |
+| Parameter  | Type     | Default | Description |
+| ---------- | -------- | ------- | ----------- |
+| `page`     | int      | `1`     | Page number |
+| `pageSize` | int      | `20`    | Items per page (1–100) |
+| `status`   | enum     | —       | `BOOKED` \| `CANCELLED` \| `COMPLETED` |
+| `from`     | ISO datetime | — | Only slots starting on/after this time |
+| `to`       | ISO datetime | — | Only slots starting before this time |
+
+**Example cURL:**
+
+```bash
+curl -X GET "http://localhost:3000/api/appointments/me?status=BOOKED&from=2026-04-01T00:00:00Z&page=1&pageSize=10" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+---
+
+## Admin Endpoints
+
+### GET `/admin/users`
+
+Paginated list of users (admin only). Supports role filter and name/email search.
+
+**Auth:** Admin
+
+**Query Parameters:**
+
+| Parameter  | Type   | Default | Description |
+| ---------- | ------ | ------- | ----------- |
+| `page`     | int    | `1`     | Page number |
+| `pageSize` | int    | `20`    | Items per page (1–100) |
+| `role`     | enum   | —       | `DOCTOR` \| `PATIENT` \| `ADMIN` \| `RECEPTIONIST` |
+| `q`        | string | —       | Case-insensitive partial match against name **or** email |
 
 **Response (200 OK):**
 
 ```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440010",
-    "userId": "550e8400-e29b-41d4-a716-446655440001",
-    "specialization": "Cardiology",
-    "bio": "Board-certified cardiologist with 15 years of experience in interventional cardiology and heart disease prevention.",
-    "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440001",
-      "name": "Dr. Ayşe Yılmaz",
-      "email": "ayse.yilmaz@medislot.com"
-    }
-  },
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440011",
-    "userId": "550e8400-e29b-41d4-a716-446655440002",
-    "specialization": "Dermatology",
-    "bio": "Specializing in medical and cosmetic dermatology...",
-    "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440002",
-      "name": "Dr. Mehmet Kaya",
-      "email": "mehmet.kaya@medislot.com"
-    }
-  }
-]
+{
+  "items": [
+    { "id": "...", "email": "...", "name": "...", "role": "DOCTOR", "createdAt": "..." }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "total": 1,
+  "totalPages": 1
+}
 ```
 
-**Error Responses:**
-
-| Status | Error                      | Cause               |
-| ------ | -------------------------- | ------------------- |
-| 401    | Authentication required    | No/invalid token    |
-| 500    | Internal server error      | Database error      |
-
-**Example cURL (without filter):**
+**Example cURL:**
 
 ```bash
-curl -X GET http://localhost:3000/api/doctors \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+curl -X GET "http://localhost:3000/api/admin/users?role=DOCTOR&q=smith&page=1&pageSize=20" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
-**Example cURL (with specialization filter):**
+---
+
+## Doctor Endpoints
+
+### GET `/doctors`
+
+Paginated doctor list with optional name search and specialization filter.
+
+**Auth:** Authenticated
+
+**Query Parameters:**
+
+| Parameter        | Type   | Default | Description |
+| ---------------- | ------ | ------- | ----------- |
+| `page`           | int    | `1`     | Page number (>= 1) |
+| `pageSize`       | int    | `20`    | Items per page (1–100) |
+| `q`              | string | —       | Case-insensitive partial match on doctor name |
+| `specialization` | string | —       | Exact-match specialization filter |
+
+**Response (200 OK):**
+
+```json
+{
+  "items": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "specialization": "Cardiology",
+      "user": { "id": "...", "name": "Dr. Ayşe Yılmaz", "email": "ayse.yilmaz@medislot.com" }
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "total": 1,
+  "totalPages": 1
+}
+```
+
+**Example cURL:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/doctors?specialization=Cardiology" \
+# Name search + specialization, first page
+curl -X GET "http://localhost:3000/api/doctors?q=smi&specialization=cardiology&page=1" \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
