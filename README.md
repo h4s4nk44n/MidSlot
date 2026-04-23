@@ -256,6 +256,8 @@ npx prisma db seed
 ```
 
 This script creates:
+- 1 admin account
+- 2 receptionists with doctor assignments
 - 3 doctors with different specializations
 - 3 patients
 - 15 available time slots
@@ -1068,6 +1070,21 @@ npx prisma db seed
 
 This creates the following accounts (you can use these for testing):
 
+### Admin Account
+
+| Email                    | Password              | Name                  |
+| ------------------------ | --------------------- | --------------------- |
+| `admin@medislot.com`     | `Admin@MediSlot2026!` | System Administrator  |
+
+> **Security note:** Change the admin password immediately in any non-development environment.
+
+### Receptionist Accounts
+
+| Email                           | Password      | Name          | Assigned Doctors                              |
+| ------------------------------- | ------------- | ------------- | --------------------------------------------- |
+| `fatma.celik@medislot.com`      | `Password123!`| Fatma Çelik   | Dr. Ayşe Yılmaz (Cardiology), Dr. Mehmet Kaya (Dermatology) |
+| `emre.sahin@medislot.com`       | `Password123!`| Emre Şahin    | Dr. Zeynep Demir (General Practice)           |
+
 ### Doctor Accounts
 
 All doctors have the specialization and bio fields populated.
@@ -1090,6 +1107,7 @@ All doctors have the specialization and bio fields populated.
 
 - **15 time slots**: Mix of past, today, and future slots across all doctors
 - **5 appointments**: Examples of booked (current), completed (past), and cancelled statuses
+- **3 receptionist assignments**: Fatma assigned to 2 doctors, Emre assigned to 1 doctor
 - **Complete doctor profiles**: All doctors have specialization and bio information
 
 ### Testing Workflow
