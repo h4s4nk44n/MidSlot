@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import { Role } from "../generated/prisma/client";
+import { Role } from "../generated/prisma";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
 
 export const listUsers = async (role?: string) => {

@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import { Prisma, Role, AppointmentStatus } from "../generated/prisma/client";
+import { Prisma, Role, AppointmentStatus } from "../generated/prisma";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../utils/errors";
 
 /**
