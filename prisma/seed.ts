@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient, Role, AppointmentStatus } from "../src/generated/prisma/client";
+import { PrismaClient, Role, AppointmentStatus } from "../src/generated/prisma";
 import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
