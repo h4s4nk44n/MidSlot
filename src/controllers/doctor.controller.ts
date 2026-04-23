@@ -1,21 +1,43 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { paginate } from "../utils/pagination";
+import { listDoctorsQuerySchema } from "../validations/doctor.validation";
 
 export const getDoctors = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { specialization } = req.query;
+    const parsed = listDoctorsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid query parameters",
+        details: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
 
-    const doctors = await prisma.doctor.findMany({
-      where: specialization ? { specialization: String(specialization) } : {},
+    const { page, pageSize, q, specialization } = parsed.data;
+
+    const where: Record<string, unknown> = {};
+    if (specialization) where.specialization = specialization;
+    if (q) {
+      // Schema uses a single `name` field on User; case-insensitive contains.
+      where.user = { name: { contains: q, mode: "insensitive" } };
+    }
+
+    const result = await paginate(prisma.doctor, {
+      where,
+      orderBy: { id: "asc" },
+      page,
+      pageSize,
       include: {
-        user: {
-          select: { id: true, name: true, email: true },
-        },
+        user: { select: { id: true, name: true, email: true } },
       },
     });
 
-    res.status(200).json(doctors);
+    res.status(200).json(result);
   } catch (error) {
     console.error("[getDoctors] Error:", error);
     res.status(500).json({ message: "Internal server error while fetching doctors." });
