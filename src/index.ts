@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import healthRouter from "./routes/health.routes";
 import errorHandler from "./middlewares/error.middlewares";
 import { apiLimiter } from "./middlewares/rateLimiter.middleware";
@@ -44,6 +45,9 @@ app.use(
 // Body parsers with size limits — prevent payload-based DoS
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ limit: "10kb", extended: true }));
+
+// Cookie parser — needed to read refresh token from httpOnly cookie
+app.use(cookieParser());
 
 /* <Routes> */
 app.use("/api", apiLimiter);
