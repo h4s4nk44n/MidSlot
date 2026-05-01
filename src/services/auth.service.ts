@@ -5,6 +5,8 @@ import { prisma } from "../lib/prisma";
 import { RegisterInput, LoginInput } from "../validators/auth.validator";
 import { ConflictError, UnauthorisedError, AccountLockedError } from "../utils/errors";
 import { generateRawRefreshToken, hashRefreshToken } from "../utils/tokenHelpters";
+import audit from "../utils/audit";
+import { AuditAction } from "../types/audit";
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -97,6 +99,12 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
+    audit.log({
+      action: AuditAction.LOGIN_FAILED,
+      metadata: { email, reason: "user_not_found" },
+      ip: context.ip,
+      userAgent: context.userAgent,
+    });
     throw new UnauthorisedError("Invalid email or password");
   }
 
@@ -105,6 +113,15 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
     const retryAfterSeconds = Math.ceil(
       (user.lockedUntil.getTime() - Date.now()) / 1000,
     );
+    audit.log({
+      actorId: user.id,
+      action: AuditAction.LOGIN_LOCKED,
+      targetType: "User",
+      targetId: user.id,
+      metadata: { email, reason: "account_locked", retryAfterSeconds },
+      ip: context.ip,
+      userAgent: context.userAgent,
+    });
     throw new AccountLockedError(
       "Account is temporarily locked due to too many failed login attempts",
       retryAfterSeconds,
@@ -124,6 +141,19 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
           lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
         },
       });
+      audit.log({
+        actorId: user.id,
+        action: AuditAction.LOGIN_LOCKED,
+        targetType: "User",
+        targetId: user.id,
+        metadata: {
+          email,
+          reason: "max_attempts_exceeded",
+          lockoutDurationMs: LOCKOUT_DURATION_MS,
+        },
+        ip: context.ip,
+        userAgent: context.userAgent,
+      });
       throw new AccountLockedError(
         "Account is temporarily locked due to too many failed login attempts",
         Math.ceil(LOCKOUT_DURATION_MS / 1000),
@@ -134,7 +164,15 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
       where: { id: user.id },
       data: { loginAttempts: newAttempts },
     });
-
+    audit.log({
+      actorId: user.id,
+      action: AuditAction.LOGIN_FAILED,
+      targetType: "User",
+      targetId: user.id,
+      metadata: { email, reason: "bad_password", attempts: newAttempts },
+      ip: context.ip,
+      userAgent: context.userAgent,
+    });
     throw new UnauthorisedError("Invalid email or password");
   }
 
@@ -153,6 +191,16 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
     userId: user.id,
     userAgent: context.userAgent,
     ip: context.ip,
+  });
+  
+  audit.log({
+    actorId: user.id,
+    action: AuditAction.LOGIN_SUCCESS,
+    targetType: "User",
+    targetId: user.id,
+    metadata: { email, role: user.role },
+    ip: context.ip,
+    userAgent: context.userAgent,
   });
 
   const { password: _, loginAttempts: __, lockedUntil: ___, ...userSafe } = user;
