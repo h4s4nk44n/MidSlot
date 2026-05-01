@@ -9,6 +9,11 @@ import {
   listAssignments,
 } from "../services/admin.service";
 import { listAdminUsersQuerySchema } from "../validations/admin.validation";
+import audit from "../utils/audit";
+import { AuditAction } from "../types/audit";
+import { prisma } from "../lib/prisma";
+import { listAuditLogs } from "../services/audit.service";
+import { listAuditLogsQuerySchema } from "../validations/audit.validation";
 
 export const getUsers = async (
   req: AuthRequest,
@@ -43,7 +48,22 @@ export const removeUser = async (
   try {
     const id = req.params.id as string;
     const currentUserId = req.user!.userId;
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true, name: true },
+    });
     await deleteUser(id, currentUserId);
+    audit.log({
+      actorId: currentUserId,
+      action: AuditAction.USER_DELETE,
+      targetType: "User",
+      targetId: id,
+      metadata: target
+        ? { email: target.email, role: target.role, name: target.name }
+        : {},
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
     res.status(200).json({ message: "User deleted successfully." });
   } catch (error) {
     next(error);
@@ -65,6 +85,16 @@ export const postAssignment = async (
     const assignedByUserId = req.user!.userId;
     const assignment = await createAssignment(receptionistId, doctorId, assignedByUserId);
 
+    audit.log({
+      actorId: assignedByUserId,
+      action: AuditAction.ASSIGNMENT_ADD,
+      targetType: "ReceptionistAssignment",
+      targetId: assignment.id,
+      metadata: { receptionistId, doctorId },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
+
     res.status(201).json(assignment);
   } catch (error) {
     next(error);
@@ -78,7 +108,21 @@ export const removeAssignment = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const actorId = req.user!.userId;
+    const existing = await prisma.receptionistAssignment.findUnique({ where: { id } });
+
     await deleteAssignment(id);
+    audit.log({
+      actorId,
+      action: AuditAction.ASSIGNMENT_REMOVE,
+      targetType: "ReceptionistAssignment",
+      targetId: id,
+      metadata: existing
+        ? { receptionistId: existing.receptionistId, doctorId: existing.doctorId }
+        : {},
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
     res.status(200).json({ message: "Assignment deleted successfully." });
   } catch (error) {
     next(error);
@@ -93,6 +137,31 @@ export const getAssignments = async (
   try {
     const assignments = await listAssignments();
     res.status(200).json(assignments);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAuditLogs = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsed = listAuditLogsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid query parameters",
+        details: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const result = await listAuditLogs(parsed.data);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

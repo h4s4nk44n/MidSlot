@@ -9,6 +9,8 @@ import {
   cancelAppointmentOnBehalf,
   listAppointmentsForReceptionist,
 } from "../services/receptionist.service";
+import audit from "../utils/audit";
+import { AuditAction } from "../types/audit";
 
 export const getAssignedDoctors = async (
   req: AuthRequest,
@@ -80,6 +82,22 @@ export const postAppointmentOnBehalf = async (
   try {
     const userId = req.user!.userId;
     const appointment = await bookAppointmentOnBehalf(userId, req.body);
+
+    audit.log({
+      actorId: userId,
+      action: AuditAction.APPOINTMENT_BOOK,
+      targetType: "Appointment",
+      targetId: appointment.id,
+      metadata: {
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+        timeSlotId: appointment.timeSlotId,
+        bookedBy: "RECEPTIONIST",
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
+
     res.status(201).json({
       message: "Appointment booked successfully.",
       data: appointment,
@@ -98,6 +116,22 @@ export const cancelAppointment = async (
     const userId = req.user!.userId;
     const appointmentId = req.params.id as string;
     const appointment = await cancelAppointmentOnBehalf(userId, appointmentId);
+
+    audit.log({
+      actorId: userId,
+      action: AuditAction.APPOINTMENT_CANCEL,
+      targetType: "Appointment",
+      targetId: appointmentId,
+      metadata: {
+        prevStatus: "BOOKED", // service'te bu kontrolden sonra cancel ediyor
+        cancelledBy: "RECEPTIONIST",
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
+    
     res.status(200).json({
       message: "Appointment cancelled successfully.",
       data: appointment,
