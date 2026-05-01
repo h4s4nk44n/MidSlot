@@ -20,7 +20,7 @@ interface AuthContextValue {
   user: User | null;
   status: AuthStatus;
   accessToken: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -105,9 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(res.accessToken);
         setUser(res.user);
         setStatus("authenticated");
+        return res.user; 
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : "Login failed";
-        toast.error(message);
         throw err;
       }
     },
