@@ -438,6 +438,10 @@ successful login and is never returned in the response body. Subsequent calls
 to `/auth/refresh` and `/auth/logout` use this cookie automatically when the
 client is configured with `credentials: "include"` (or equivalent).
 
+**Audit:** Login attempts (success, failure, lockout) are recorded in the
+audit log along with email, IP, and user-agent. Sensitive fields such as
+passwords are never persisted to audit metadata.
+
 **Error Responses:**
 
 | Status | Error                | Cause                           |
@@ -456,6 +460,57 @@ curl -X POST http://localhost:3000/api/auth/login \
     "password": "securePassword123"
   }'
 ```
+
+---
+
+### GET `/admin/audit`
+
+Read-only audit log viewer for administrators.
+
+**Auth:** Admin only
+
+**Query Parameters:**
+
+| Parameter    | Type    | Description                                     |
+| ------------ | ------- | ----------------------------------------------- |
+| `page`       | integer | Page number (default 1, min 1)                  |
+| `pageSize`   | integer | Items per page (default 20, min 1, max 100)     |
+| `action`     | string  | Filter by action code (e.g. `login.success`)    |
+| `actorId`    | uuid    | Filter by user who performed the action         |
+| `targetType` | string  | Filter by target type (e.g. `Appointment`)      |
+| `targetId`   | string  | Filter by target id                             |
+| `from`       | ISO 8601| Lower bound on `createdAt` (inclusive)          |
+| `to`         | ISO 8601| Upper bound on `createdAt` (exclusive)          |
+
+**Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "actorId": "uuid",
+      "action": "login.success",
+      "targetType": "User",
+      "targetId": "uuid",
+      "metadata": { "email": "x@y.com", "role": "PATIENT" },
+      "ip": "127.0.0.1",
+      "userAgent": "curl/8.x",
+      "createdAt": "2026-05-01T12:00:00.000Z",
+      "actor": {
+        "id": "uuid",
+        "name": "Ali Vural",
+        "email": "ali.vural@example.com",
+        "role": "PATIENT"
+      }
+    }
+  ],
+  "meta": { "page": 1, "pageSize": 20, "total": 150, "totalPages": 8 }
+}
+```
+
+Sensitive metadata (passwords, tokens) is automatically redacted before
+storage; this endpoint never returns raw secrets.
 
 ---
 

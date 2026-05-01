@@ -9,6 +9,8 @@ import {
 } from "../utils/errors";
 import { paginate } from "../utils/pagination";
 import { listMyAppointmentsQuerySchema } from "../validations/appointment.validation";
+import audit from "../utils/audit";
+import { AuditAction } from "../types/audit";
 
 // --- MEDI-38: Role-Aware Listing + MEDI-50: Pagination/filters ---
 export const getMyAppointments = async (req: Request, res: Response): Promise<void> => {
@@ -127,6 +129,21 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       return newAppointment;
     });
 
+    audit.log({
+      actorId: userId,
+      action: AuditAction.APPOINTMENT_BOOK,
+      targetType: "Appointment",
+      targetId: appointment.id,
+      metadata: {
+        patientId,
+        doctorId: slot.doctorId,
+        timeSlotId: slot.id,
+        bookedBy: userRole, // PATIENT or RECEPTIONIST
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
+
     res.status(201).json({
       message: "Appointment booked successfully.",
       data: appointment,
@@ -185,6 +202,21 @@ export const cancelAppointment = async (req: Request, res: Response): Promise<vo
       return updatedAppt;
     });
 
+    audit.log({
+      actorId: userId,
+      action: AuditAction.APPOINTMENT_CANCEL,
+      targetType: "Appointment",
+      targetId: id,
+      metadata: {
+        prevStatus: appointment.status,
+        cancelledBy: userRole,
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
+
     res.status(200).json({ message: "Appointment cancelled successfully.", data: updated });
   } catch (error: any) {
     if (error instanceof NotFoundError || error instanceof BadRequestError || error instanceof ForbiddenError || error instanceof ConflictError) {
@@ -231,6 +263,20 @@ export const completeAppointment = async (req: Request, res: Response): Promise<
     const updated = await prisma.appointment.update({
       where: { id },
       data: { status: "COMPLETED" },
+    });
+
+    audit.log({
+      actorId: userId,
+      action: AuditAction.APPOINTMENT_COMPLETE,
+      targetType: "Appointment",
+      targetId: id,
+      metadata: {
+        completedBy: userRole,
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
     });
 
     res.status(200).json({ message: "Appointment marked as completed.", data: updated });

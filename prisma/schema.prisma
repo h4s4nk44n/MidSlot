@@ -35,6 +35,7 @@ model User {
   doctor         Doctor?
   appointments   Appointment[]
   refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]   @relation("AuditActor") 
 
   receptionistAssignments ReceptionistAssignment[] @relation("ReceptionistAssignments")
   assignedAssignments     ReceptionistAssignment[] @relation("AssignedByUser")
@@ -129,4 +130,23 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
   @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
