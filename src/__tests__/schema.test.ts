@@ -394,8 +394,9 @@ describe("Cascade deletes", () => {
     await prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: "test-token-1",
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        tokenHash: "test-hash-1",
+        familyId: "test-family-1",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
@@ -410,7 +411,7 @@ describe("Cascade deletes", () => {
 // RefreshToken model
 // ---------------------------------------------------------------------------
 describe("RefreshToken model", () => {
-  it("creates a refresh token for a user", async () => {
+  it("creates a refresh token with hash and family id", async () => {
     const user = await prisma.user.create({
       data: { email: makeEmail(), password: "pw", name: "User RT", role: Role.PATIENT },
     });
@@ -418,28 +419,33 @@ describe("RefreshToken model", () => {
     const token = await prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: "jwt-refresh-token-abc123",
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        tokenHash: "hash-abc123",
+        familyId: "family-1",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
     expect(token.id).toBeDefined();
     expect(token.userId).toBe(user.id);
-    expect(token.token).toBe("jwt-refresh-token-abc123");
+    expect(token.tokenHash).toBe("hash-abc123");
+    expect(token.familyId).toBe("family-1");
+    expect(token.revokedAt).toBeNull();
+    expect(token.replacedById).toBeNull();
     expect(token.expiresAt).toBeInstanceOf(Date);
-    expect(token.createdAt).toBeInstanceOf(Date);
+    expect(token.issuedAt).toBeInstanceOf(Date);
   });
 
-  it("enforces unique token constraint", async () => {
+  it("enforces unique tokenHash constraint", async () => {
     const user = await prisma.user.create({
       data: { email: makeEmail(), password: "pw", name: "User1", role: Role.PATIENT },
     });
 
-    const tokenValue = "unique-token-xyz";
+    const hash = "unique-hash-xyz";
     await prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: tokenValue,
+        tokenHash: hash,
+        familyId: "family-a",
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
@@ -452,14 +458,15 @@ describe("RefreshToken model", () => {
       prisma.refreshToken.create({
         data: {
           userId: user2.id,
-          token: tokenValue, // Duplicate token
+          tokenHash: hash, // duplicate
+          familyId: "family-b",
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       }),
     ).rejects.toThrow();
   });
 
-  it("allows multiple refresh tokens per user", async () => {
+  it("allows multiple refresh tokens per user with different families", async () => {
     const user = await prisma.user.create({
       data: { email: makeEmail(), password: "pw", name: "UserMulti", role: Role.PATIENT },
     });
@@ -467,7 +474,8 @@ describe("RefreshToken model", () => {
     const token1 = await prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: "token-1",
+        tokenHash: "hash-1",
+        familyId: "family-1",
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
@@ -475,7 +483,8 @@ describe("RefreshToken model", () => {
     const token2 = await prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: "token-2",
+        tokenHash: "hash-2",
+        familyId: "family-2",
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
@@ -484,6 +493,48 @@ describe("RefreshToken model", () => {
     expect(userTokens).toHaveLength(2);
     expect(userTokens.map((t) => t.id)).toContain(token1.id);
     expect(userTokens.map((t) => t.id)).toContain(token2.id);
+  });
+
+  it("supports rotation chain via replacedById self-relation", async () => {
+    const user = await prisma.user.create({
+      data: { email: makeEmail(), password: "pw", name: "UserRotate", role: Role.PATIENT },
+    });
+
+    const familyId = "family-rotate";
+
+    // İlk token
+    const token1 = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: "hash-rotate-1",
+        familyId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    // Rotate: yeni token oluştur, eskisini revoke + replacedBy işaretle
+    const token2 = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: "hash-rotate-2",
+        familyId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    await prisma.refreshToken.update({
+      where: { id: token1.id },
+      data: { revokedAt: new Date(), replacedById: token2.id },
+    });
+
+    const updatedToken1 = await prisma.refreshToken.findUnique({
+      where: { id: token1.id },
+      include: { replacedBy: true },
+    });
+
+    expect(updatedToken1!.revokedAt).not.toBeNull();
+    expect(updatedToken1!.replacedById).toBe(token2.id);
+    expect(updatedToken1!.replacedBy!.tokenHash).toBe("hash-rotate-2");
   });
 
   it("can be queried through User relation", async () => {
@@ -495,7 +546,8 @@ describe("RefreshToken model", () => {
         role: Role.PATIENT,
         refreshTokens: {
           create: {
-            token: "rel-token",
+            tokenHash: "rel-hash",
+            familyId: "rel-family",
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           },
         },
@@ -504,10 +556,10 @@ describe("RefreshToken model", () => {
     });
 
     expect(user.refreshTokens).toHaveLength(1);
-    expect(user.refreshTokens[0].token).toBe("rel-token");
+    expect(user.refreshTokens[0].tokenHash).toBe("rel-hash");
   });
 
-  it("deletes token when user is deleted", async () => {
+  it("deletes tokens when user is deleted", async () => {
     const user = await prisma.user.create({
       data: {
         email: makeEmail(),
@@ -516,7 +568,8 @@ describe("RefreshToken model", () => {
         role: Role.PATIENT,
         refreshTokens: {
           create: {
-            token: "del-token",
+            tokenHash: "del-hash",
+            familyId: "del-family",
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           },
         },
@@ -525,7 +578,6 @@ describe("RefreshToken model", () => {
     });
 
     const tokenId = user.refreshTokens[0].id;
-
     await prisma.user.delete({ where: { id: user.id } });
 
     const token = await prisma.refreshToken.findUnique({ where: { id: tokenId } });

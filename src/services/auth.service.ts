@@ -1,55 +1,67 @@
 import * as bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { prisma } from "../lib/prisma";
 import { RegisterInput, LoginInput } from "../validators/auth.validator";
 import { ConflictError, UnauthorisedError, AccountLockedError } from "../utils/errors";
+import { generateRawRefreshToken, hashRefreshToken } from "../utils/tokenHelpters";
 
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h"; // Default 1 hour
-const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d"; // Default 7 day
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Helper to create JWT token
-const createJWTToken = (userId: string, email: string, role: string) => {
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const createAccessToken = (userId: string, email: string, role: string): string => {
   return jwt.sign({ userId, email, role }, process.env.JWT_SECRET as string, {
     expiresIn: JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
   });
 };
 
-// Helper to create refresh token
-const createRefreshToken = async (userId: string) => {
-  const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
-  const token = jwt.sign({ userId }, refreshTokenSecret as string, {
-    expiresIn: REFRESH_TOKEN_EXPIRES_IN as jwt.SignOptions["expiresIn"],
-  });
+interface IssueRefreshArgs {
+  userId: string;
+  familyId?: string; // existing family on rotation; new one on login
+  userAgent?: string;
+  ip?: string;
+}
 
-  // Calculate expiration date
-  const payload = jwt.decode(token) as jwt.JwtPayload;
-  const expiresAt = new Date(payload.exp! * 1000);
+/**
+ * Generates a raw refresh token, stores its hash, returns both the raw token
+ * and the DB row. Raw token goes to the cookie; hash stays in DB.
+ */
+const issueRefreshToken = async ({ userId, familyId, userAgent, ip }: IssueRefreshArgs) => {
+  const rawToken = generateRawRefreshToken();
+  const tokenHash = hashRefreshToken(rawToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
-  // Store refresh token in database
-  await prisma.refreshToken.create({
+  const stored = await prisma.refreshToken.create({
     data: {
       userId,
-      token,
+      tokenHash,
+      familyId: familyId ?? crypto.randomUUID(),
       expiresAt,
+      userAgent,
+      ip,
     },
   });
 
-  return token;
+  return { rawToken, stored };
 };
+
+// ─── Register ───────────────────────────────────────────────────────────────
 
 export const registerUser = async (data: RegisterInput) => {
   const { email, name, password, role } = data;
 
-  // 1. Is email already registered?
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw new ConflictError("Email already registered");
   }
 
-  // 2. Hashing the password
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // 3. Create user (and Doctor profile if role is DOCTOR)
   const user = await prisma.user.create({
     data: {
       email,
@@ -57,9 +69,7 @@ export const registerUser = async (data: RegisterInput) => {
       password: hashedPassword,
       role,
       ...(role === "DOCTOR" && {
-        doctor: {
-          create: {},
-        },
+        doctor: { create: {} },
       }),
     },
     select: {
@@ -74,21 +84,23 @@ export const registerUser = async (data: RegisterInput) => {
   return user;
 };
 
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-export const loginUser = async (data: LoginInput) => {
+// ─── Login ──────────────────────────────────────────────────────────────────
+
+interface LoginContext {
+  userAgent?: string;
+  ip?: string;
+}
+
+export const loginUser = async (data: LoginInput, context: LoginContext = {}) => {
   const { email, password } = data;
 
-  // 1. Find user
   const user = await prisma.user.findUnique({ where: { email } });
 
-  // 2. If user does not exist or password is wrong — same error message (security)
   if (!user) {
     throw new UnauthorisedError("Invalid email or password");
   }
 
-  // 3. Check lockout status BEFORE verifying password
-  //    (Even a correct password must not bypass an active lock.)
+  // Lockout check BEFORE password verification
   if (user.lockedUntil && user.lockedUntil > new Date()) {
     const retryAfterSeconds = Math.ceil(
       (user.lockedUntil.getTime() - Date.now()) / 1000,
@@ -100,11 +112,11 @@ export const loginUser = async (data: LoginInput) => {
   }
 
   const passwordMatch = await bcrypt.compare(password, user.password);
+
   if (!passwordMatch) {
     const newAttempts = user.loginAttempts + 1;
 
     if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
-      // Lock the account and reset counter
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -112,20 +124,21 @@ export const loginUser = async (data: LoginInput) => {
           lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
         },
       });
-
       throw new AccountLockedError(
         "Account is temporarily locked due to too many failed login attempts",
         Math.ceil(LOCKOUT_DURATION_MS / 1000),
       );
     }
-  // Not at limit yet, just increment
+
     await prisma.user.update({
       where: { id: user.id },
       data: { loginAttempts: newAttempts },
     });
+
     throw new UnauthorisedError("Invalid email or password");
   }
-   // 4. Success — reset attempts & lockout
+
+  // Success — reset attempts/lockout
   if (user.loginAttempts > 0 || user.lockedUntil) {
     await prisma.user.update({
       where: { id: user.id },
@@ -133,71 +146,111 @@ export const loginUser = async (data: LoginInput) => {
     });
   }
 
-  // 5. Create JWT token
-  const token = createJWTToken(user.id, user.email, user.role);
+  const accessToken = createAccessToken(user.id, user.email, user.role);
 
-  // 6. Create and save refresh token
-  const refreshToken = await createRefreshToken(user.id);
+  // Fresh family on a new login
+  const { rawToken: rawRefreshToken } = await issueRefreshToken({
+    userId: user.id,
+    userAgent: context.userAgent,
+    ip: context.ip,
+  });
 
-  // 7. Return without password
-    const { password: _, loginAttempts: __, lockedUntil: ___, ...userWithoutSensitiveFields } = user;
+  const { password: _, loginAttempts: __, lockedUntil: ___, ...userSafe } = user;
 
   return {
-    token,
-    refreshToken,
-    user: userWithoutSensitiveFields, // like password
+    accessToken,
+    rawRefreshToken,
+    user: userSafe,
   };
 };
 
-export const refreshAccessToken = async (refreshToken: string) => {
-  try {
-    const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
+// ─── Refresh (with rotation + reuse detection) ──────────────────────────────
 
-    // Verify refresh token signature (will throw if invalid)
-    jwt.verify(refreshToken, refreshTokenSecret as string);
+export const rotateRefreshToken = async (
+  presentedRawToken: string,
+  context: LoginContext = {},
+) => {
+  const tokenHash = hashRefreshToken(presentedRawToken);
 
-    // Check if refresh token exists in database and is valid
-    const storedToken = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true },
-    });
+  const stored = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  });
 
-    if (!storedToken || storedToken.expiresAt < new Date()) {
-      throw new UnauthorisedError("Invalid or expired refresh token");
-    }
-
-    // Create new access token
-    const user = storedToken.user;
-    const newAccessToken = createJWTToken(user.id, user.email, user.role);
-
-    return {
-      token: newAccessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-    };
-  } catch (error) {
-    if (error instanceof UnauthorisedError) {
-      throw error;
-    }
-    throw new UnauthorisedError("Failed to refresh token");
+  // Unknown token → 401
+  if (!stored) {
+    throw new UnauthorisedError("Invalid refresh token");
   }
+
+  // REUSE DETECTION: token was already revoked → kill the entire family
+  // (rotated-then-presented = theft signal)
+  if (stored.revokedAt) {
+    await prisma.refreshToken.updateMany({
+      where: {
+        familyId: stored.familyId,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+    // TODO: hook into AuditLog once MEDI-46 lands (security event)
+    throw new UnauthorisedError("Refresh token reuse detected; session revoked");
+  }
+
+  // Expired token → 401
+  if (stored.expiresAt < new Date()) {
+    throw new UnauthorisedError("Refresh token expired");
+  }
+
+  // Happy path: issue new pair, link old → new, revoke old
+  const user = stored.user;
+  const newAccessToken = createAccessToken(user.id, user.email, user.role);
+
+  const { rawToken: newRawToken, stored: newStored } = await issueRefreshToken({
+    userId: user.id,
+    familyId: stored.familyId, // SAME family across rotation chain
+    userAgent: context.userAgent,
+    ip: context.ip,
+  });
+
+  await prisma.refreshToken.update({
+    where: { id: stored.id },
+    data: {
+      revokedAt: new Date(),
+      replacedById: newStored.id,
+    },
+  });
+
+  return {
+    accessToken: newAccessToken,
+    rawRefreshToken: newRawToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    },
+  };
 };
 
-export const logoutUser = async (refreshToken: string) => {
-  try {
-    // Delete refresh token from database
-    await prisma.refreshToken.delete({
-      where: { token: refreshToken },
-    });
-    return { success: true };
-  } catch (_error) {
-    // Token doesn't exist, that's okay for logout
-    return { success: true };
-  }
+// ─── Logout ─────────────────────────────────────────────────────────────────
+
+export const logoutUser = async (presentedRawToken: string | undefined) => {
+  // No token? Logout is idempotent — just succeed.
+  if (!presentedRawToken) return;
+
+  const tokenHash = hashRefreshToken(presentedRawToken);
+
+  const stored = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+  if (!stored) return; // unknown token; nothing to revoke
+
+  // Already revoked? Don't trigger reuse detection here — logout is "I know
+  // about this token and I want it gone". Still idempotent.
+  if (stored.revokedAt) return;
+
+  await prisma.refreshToken.update({
+    where: { id: stored.id },
+    data: { revokedAt: new Date() },
+  });
 };
