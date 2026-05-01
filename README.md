@@ -433,6 +433,10 @@ even if a subsequent request carries the correct password.
   }
 }
 ```
+**Note:** The refresh token is set as an httpOnly cookie (`refreshToken`) on
+successful login and is never returned in the response body. Subsequent calls
+to `/auth/refresh` and `/auth/logout` use this cookie automatically when the
+client is configured with `credentials: "include"` (or equivalent).
 
 **Error Responses:**
 
