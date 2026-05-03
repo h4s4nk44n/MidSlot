@@ -17,7 +17,7 @@ export function setRefreshCookie(res: Response, rawToken: string): void {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/api/auth",
+    path: "/",
     maxAge: REFRESH_TOKEN_TTL_MS,
   });
 }
@@ -27,6 +27,6 @@ export function clearRefreshCookie(res: Response): void {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/api/auth",
+    path: "/",
   });
 }
