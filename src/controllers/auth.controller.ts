@@ -11,7 +11,7 @@ import {
   REFRESH_COOKIE_NAME,
   setRefreshCookie,
   clearRefreshCookie,
-} from "../utils/tokenHelpters";
+} from "../utils/tokenHelpers";
 
 const getRequestContext = (req: Request) => ({
   userAgent: req.headers["user-agent"]?.slice(0, 500),
