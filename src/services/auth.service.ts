@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { prisma } from "../lib/prisma";
 import { RegisterInput, LoginInput } from "../validators/auth.validator";
 import { ConflictError, UnauthorisedError, AccountLockedError } from "../utils/errors";
-import { generateRawRefreshToken, hashRefreshToken } from "../utils/tokenHelpters";
+import { generateRawRefreshToken, hashRefreshToken } from "../utils/tokenHelpers";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";
 

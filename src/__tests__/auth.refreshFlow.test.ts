@@ -1,7 +1,7 @@
 import request from "supertest";
 import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
-import { hashRefreshToken } from "../utils/tokenHelpters";
+import { hashRefreshToken } from "../utils/tokenHelpers";
 
 // Refresh akışı 5 limit'i aşmıyor ama yine de güvenli olsun
 process.env.DISABLE_RATE_LIMIT = "true";

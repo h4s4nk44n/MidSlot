@@ -10,9 +10,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { toast } from "sonner";
-import { api, apiPost, configureTokenStore, onLogout, ApiError } from "./api";
+import { api, apiPost, configureTokenStore, onLogout, ApiError, refreshAccessToken } from "./api";
 import type { User } from "./types";
+
+const SESSION_USER_KEY = "midslot_session_user";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -31,12 +32,36 @@ interface LoginResponse {
   user: User;
 }
 
+function readCachedUser(): User | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_USER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user: User | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) {
+      sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    } else {
+      sessionStorage.removeItem(SESSION_USER_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // Initialize from sessionStorage so navigations don't flash unauthenticated.
+  // Defer reading sessionStorage to after mount to avoid SSR hydration mismatch.
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
-  // Token is mirrored into a ref for synchronous reads by the fetch wrapper
-  // (no re-render) and into React state so consumers re-render on change.
-  // Not persisted in localStorage.
+  const [hydrated, setHydrated] = useState(false);
   const tokenRef = useRef<string | null>(null);
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
 
@@ -55,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setAccessToken(null);
       setStatus("unauthenticated");
+      writeCachedUser(null);
       if (typeof window !== "undefined" && window.location.pathname !== "/login") {
         window.location.assign("/login");
       }
@@ -62,53 +88,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return off;
   }, [setAccessToken]);
 
-  // Hydrate session on mount. The refresh-token cookie (httpOnly) lets the
-  // backend issue a fresh access token via /auth/refresh. Then fetch /auth/me.
+  // Read cached user from sessionStorage AFTER mount (not during SSR).
+  // This prevents hydration mismatches between server and client HTML.
   useEffect(() => {
+    const cached = readCachedUser();
+    if (cached) {
+      setUser(cached);
+      setStatus("authenticated");
+    }
+    setHydrated(true);
+  }, []);
+
+  // On mount: refresh access token in the background. The user state is
+  // already populated from sessionStorage if we had a session, so the UI
+  // doesn't flash. We just need a fresh in-memory token to make API calls.
+  // On mount: refresh access token in the background.
+  useEffect(() => {
+    if (!hydrated) return;
     let cancelled = false;
+
+    // If we already have a cached user, we're authenticated. Don't refresh
+    // on every navigation — that triggers a fresh rotation each time, and
+    // any race with another tab/mount blows up reuse detection.
+    // The access token will be refreshed lazily by api.ts on the first 401.
+    if (user) return;
+
+    // First visit (or sessionStorage cleared) — try to resurrect a session
+    // from the refresh cookie.
     (async () => {
-      try {
-        const refreshed = await apiPost<{ accessToken?: string }>(
-          "/auth/refresh",
-          undefined,
-          { _skipRefresh: true },
-        ).catch(() => null);
+      const newToken = await refreshAccessToken();
+      if (cancelled) return;
+
+      if (newToken) {
+        setAccessToken(newToken);
+        const me = await api<User>("/auth/me").catch(() => null);
         if (cancelled) return;
-        if (refreshed?.accessToken) {
-          setAccessToken(refreshed.accessToken);
-          const me = await api<User>("/auth/me").catch(() => null);
-          if (cancelled) return;
-          if (me) {
-            setUser(me);
-            setStatus("authenticated");
-            return;
-          }
+        if (me) {
+          setUser(me);
+          setStatus("authenticated");
+          writeCachedUser(me);
+        } else {
+          setStatus("unauthenticated");
+          writeCachedUser(null);
         }
+      } else {
+        setUser(null);
+        setAccessToken(null);
         setStatus("unauthenticated");
-      } catch {
-        if (!cancelled) setStatus("unauthenticated");
+        writeCachedUser(null);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [setAccessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   const login = useCallback(
     async (email: string, password: string) => {
-      try {
-        const res = await apiPost<LoginResponse>(
-          "/auth/login",
-          { email, password },
-          { _skipRefresh: true },
-        );
-        setAccessToken(res.accessToken);
-        setUser(res.user);
-        setStatus("authenticated");
-        return res.user; 
-      } catch (err) {
-        throw err;
-      }
+      const res = await apiPost<LoginResponse>(
+        "/auth/login",
+        { email, password },
+        { _skipRefresh: true },
+      );
+      setAccessToken(res.accessToken);
+      setUser(res.user);
+      setStatus("authenticated");
+      writeCachedUser(res.user);
+      return res.user;
     },
     [setAccessToken],
   );
@@ -117,11 +165,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await apiPost("/auth/logout", undefined, { _skipRefresh: true });
     } catch {
-      // logout is best-effort — clear local state regardless
+      // best-effort
     }
     setAccessToken(null);
     setUser(null);
     setStatus("unauthenticated");
+    writeCachedUser(null);
     if (typeof window !== "undefined") window.location.assign("/login");
   }, [setAccessToken]);
 
