@@ -79,13 +79,13 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export function homeForRole(role: string): string {
   switch (role) {
     case "PATIENT":
-      return "/doctors";
+      return "/patient";
     case "DOCTOR":
-      return "/dashboard";
+      return "/doctor";
     case "RECEPTIONIST":
-      return "/dashboard";
+      return "/reception";
     case "ADMIN":
-      return "/admin/users";
+      return "/admin";
     default:
       return "/";
   }
