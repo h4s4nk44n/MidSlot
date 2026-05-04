@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface TimeSlot {
   id: string;
@@ -183,28 +185,31 @@ export default function AvailabilityManagementPage() {
 
       <div className="rounded-lg border border-border bg-surface-raised shadow-xs p-6">
         {loading ? (
-           <div className="flex h-40 items-center justify-center">
-             <div className="h-6 w-6 animate-spin rounded-full border-[1.5px] border-text-muted border-t-transparent" />
+           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" aria-busy="true" aria-label="Loading slots">
+             {Array.from({ length: 8 }).map((_, i) => (
+               <div key={i} className="animate-pulse rounded-md border border-border bg-surface-base p-4 space-y-2">
+                 <Skeleton className="h-5 w-3/4" />
+                 <Skeleton className="h-4 w-1/2" />
+                 <Skeleton className="h-8 w-full mt-3" />
+               </div>
+             ))}
            </div>
         ) : error ? (
-           <div className="rounded-md bg-red-50 p-4 text-center text-sm text-red-600 border border-red-100">
-             {error}
+           <div role="alert" className="rounded-md border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-fg flex items-center justify-between">
+             <span>{error}</span>
+             <Button variant="outline" size="sm" onClick={fetchSlots}>Retry</Button>
            </div>
         ) : slots.length === 0 ? (
-           <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100">
-                <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </div>
-              <h3 className="mb-2 font-display text-xl font-medium text-text-primary">No availability set</h3>
-              <p className="mb-6 max-w-[40ch] text-sm text-text-muted">
-                You haven't opened any time slots for the future yet. Add availability so patients can book appointments.
-              </p>
-              <Button onClick={handleOpenModal}>
-                Add Availability
-              </Button>
-           </div>
+           <EmptyState
+             icon={
+               <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+               </svg>
+             }
+             heading="No availability set"
+             body="You haven't opened any time slots for the future yet. Add availability so patients can book appointments."
+             action={{ label: "Add Availability", onClick: handleOpenModal }}
+           />
         ) : (
            <div className="space-y-8">
              {Object.keys(groupedSlots).map((dateKey) => (
@@ -265,9 +270,10 @@ export default function AvailabilityManagementPage() {
             
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">Date</label>
-                <input 
-                  type="date" 
+                <label htmlFor="avail-date" className="block text-sm font-medium text-text-primary mb-1">Date</label>
+                <input
+                  id="avail-date"
+                  type="date"
                   min={new Date().toISOString().split("T")[0]}
                   value={formData.date}
                   onChange={(e) => setFormData({...formData, date: e.target.value})}
@@ -276,18 +282,20 @@ export default function AvailabilityManagementPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-1">Start Time</label>
-                  <input 
-                    type="time" 
+                  <label htmlFor="avail-start" className="block text-sm font-medium text-text-primary mb-1">Start Time</label>
+                  <input
+                    id="avail-start"
+                    type="time"
                     value={formData.startTime}
                     onChange={(e) => setFormData({...formData, startTime: e.target.value})}
                     className="w-full rounded-md border border-border p-2 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-1">End Time</label>
-                  <input 
-                    type="time" 
+                  <label htmlFor="avail-end" className="block text-sm font-medium text-text-primary mb-1">End Time</label>
+                  <input
+                    id="avail-end"
+                    type="time"
                     value={formData.endTime}
                     onChange={(e) => setFormData({...formData, endTime: e.target.value})}
                     className="w-full rounded-md border border-border p-2 text-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600"

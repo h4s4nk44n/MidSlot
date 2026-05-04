@@ -256,10 +256,11 @@ export default function ReceptionBookPage() {
 
             {/* Notes */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-text-primary">
+              <label htmlFor="booking-notes" className="mb-1 block text-sm font-medium text-text-primary">
                 Notes <span className="text-text-muted">(optional)</span>
               </label>
               <textarea
+                id="booking-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value.slice(0, 1000))}
                 rows={3}
