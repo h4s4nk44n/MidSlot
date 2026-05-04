@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError, AccountLockedError } from "../utils/errors";
+import logger from "../lib/logger";
 
 const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction): void => {
 
@@ -75,7 +76,7 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
   }
 
   // Unexpected errors — log but never leak details to client
-  console.error("Unexpected error:", err);
+  logger.error({ err }, "Unexpected error");
   res.status(500).json({
     error: "Internal server error",
     statusCode: 500,

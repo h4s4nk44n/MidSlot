@@ -109,8 +109,10 @@ export function PatientTypeahead({ value, onChange }: PatientTypeaheadProps) {
           ref={inputRef}
           type="text"
           role="combobox"
+          aria-label="Search patients by name or email"
           aria-expanded={open}
           aria-autocomplete="list"
+          aria-controls="pt-listbox"
           aria-activedescendant={activeIndex >= 0 ? `pt-option-${activeIndex}` : undefined}
           value={query}
           onChange={handleChange}
@@ -126,18 +128,18 @@ export function PatientTypeahead({ value, onChange }: PatientTypeaheadProps) {
           ].join(" ")}
         />
         {/* Status icon */}
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
+        <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
           {loading ? (
-            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
           ) : confirmed ? (
-            <svg className="h-4 w-4 text-sage-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <svg className="h-4 w-4 text-sage-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
               <path d="M5 12l5 5L20 6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           ) : (
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
@@ -147,7 +149,9 @@ export function PatientTypeahead({ value, onChange }: PatientTypeaheadProps) {
       {open && (
         <ul
           ref={listRef}
+          id="pt-listbox"
           role="listbox"
+          aria-label="Patient search results"
           className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border bg-surface-raised shadow-overlay"
         >
           {results.length === 0 ? (

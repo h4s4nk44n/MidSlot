@@ -125,6 +125,14 @@ export function TopNav() {
                       </Link>
                     </li>
                     <li>
+                      <Link
+                        href="/reception/appointments"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
+                        Appointments
+                      </Link>
+                    </li>
+                    <li>
                       {activeDoctor ? (
                         <Link
                           href="/reception/book"
@@ -161,7 +169,7 @@ export function TopNav() {
                 <li>
                   <button
                     onClick={logout}
-                    className="font-medium text-danger-fg transition-colors hover:text-red-700"
+                    className="font-medium text-danger-fg transition-colors hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-danger-border rounded-sm"
                   >
                     Sign out
                   </button>
