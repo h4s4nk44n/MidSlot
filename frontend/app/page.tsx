@@ -62,7 +62,7 @@ export default function Home() {
           </p>
           <div className="flex items-center gap-3 pt-2">
             <Link
-              href="/doctors"
+              href="/patient/doctors"
               className="inline-flex h-[34px] items-center justify-center rounded-md border border-primary-800 bg-primary-700 px-3.5 text-sm font-medium text-white no-underline transition-colors hover:bg-primary-800"
             >
               Find a doctor

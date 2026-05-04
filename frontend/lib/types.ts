@@ -21,3 +21,16 @@ export interface Paginated<T> {
   total: number;
   totalPages: number;
 }
+
+export interface Doctor {
+  id: string;
+  userId: string;
+  specialization: string;
+  bio?: string | null;
+  experienceYears?: number;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
