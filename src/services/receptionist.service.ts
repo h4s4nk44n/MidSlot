@@ -181,7 +181,7 @@ export const cancelAppointmentOnBehalf = async (
 
 export const listAppointmentsForReceptionist = async (
   receptionistUserId: string,
-  filters: { status?: string; doctorId?: string; date?: string },
+  filters: { status?: string; doctorId?: string; date?: string; page?: number; pageSize?: number },
 ) => {
   const assignments = await prisma.receptionistAssignment.findMany({
     where: { receptionistId: receptionistUserId },
@@ -223,17 +223,34 @@ export const listAppointmentsForReceptionist = async (
     where.timeSlot = { startTime: { gte: dayStart, lt: dayEnd } };
   }
 
-  return prisma.appointment.findMany({
-    where,
-    include: {
-      patient: { select: { id: true, name: true, email: true } },
-      doctor: {
-        include: { user: { select: { id: true, name: true, email: true } } },
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
+  const skip = (page - 1) * pageSize;
+
+  const [items, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: {
+        patient: { select: { id: true, name: true, email: true } },
+        doctor: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
+        timeSlot: true,
       },
-      timeSlot: true,
-    },
-    orderBy: { timeSlot: { startTime: "asc" } },
-  });
+      orderBy: { timeSlot: { startTime: "asc" } },
+      skip,
+      take: pageSize,
+    }),
+    prisma.appointment.count({ where }),
+  ]);
+
+  return {
+    items,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  };
 };
 
 export const searchPatients = async (q: string, limit: number) => {

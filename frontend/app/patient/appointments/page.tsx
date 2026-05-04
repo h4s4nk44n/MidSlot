@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPatch } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { CardSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Paginated } from "@/lib/types";
 
 type AppointmentStatus = "BOOKED" | "CANCELLED" | "COMPLETED";
@@ -125,9 +127,9 @@ export default function PatientAppointmentsPage() {
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setPage(1); }}
-                className={`border-b-2 pb-3 text-sm font-medium capitalize transition-colors focus:outline-none ${
-                  activeTab === tab 
-                    ? "border-primary-600 text-primary-700" 
+                className={`border-b-2 pb-3 text-sm font-medium capitalize transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 rounded-sm ${
+                  activeTab === tab
+                    ? "border-primary-600 text-primary-700"
                     : "border-transparent text-text-muted hover:border-neutral-300 hover:text-text-primary"
                 }`}
               >
@@ -139,28 +141,25 @@ export default function PatientAppointmentsPage() {
 
         <div className="p-6">
           {loading ? (
-            <div className="flex h-40 items-center justify-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-[1.5px] border-text-muted border-t-transparent" />
+            <div className="space-y-4" aria-busy="true" aria-label="Loading appointments">
+              {Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)}
             </div>
           ) : error ? (
-            <div className="rounded-md bg-red-50 p-4 text-center text-sm text-red-600 border border-red-100">
-              {error}
+            <div role="alert" className="rounded-md border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-fg flex items-center justify-between">
+              <span>{error}</span>
+              <Button variant="outline" size="sm" onClick={fetchAppointments}>Retry</Button>
             </div>
           ) : !appointments || appointments.items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100">
-                <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <EmptyState
+              icon={
+                <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-              </div>
-              <h3 className="mb-2 font-display text-xl font-medium text-text-primary capitalize">No {activeTab} appointments</h3>
-              <p className="mb-6 max-w-[40ch] text-sm text-text-muted">
-                You don't have any {activeTab} appointments at the moment. Need to see a doctor?
-              </p>
-              <Button onClick={() => router.push("/patient/doctors")}>
-                Browse Doctors
-              </Button>
-            </div>
+              }
+              heading={`No ${activeTab} appointments`}
+              body={`You don't have any ${activeTab} appointments at the moment. Need to see a doctor?`}
+              action={activeTab === "upcoming" ? { label: "Browse Doctors", onClick: () => router.push("/patient/doctors") } : undefined}
+            />
           ) : (
             <div className="space-y-4">
               {appointments.items.map((apt) => {

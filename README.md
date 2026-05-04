@@ -12,7 +12,16 @@
 - [Data Model](#data-model)
 - [Setup Instructions](#setup-instructions)
 - [Running the Application](#running-the-application)
+- [Docker / Deployment](#docker--deployment)
+- [Smoke Test](#smoke-test)
 - [API Documentation](#api-documentation)
+  - [Authentication Endpoints](#authentication-endpoints)
+  - [Time Slot Endpoints](#time-slot-endpoints)
+  - [Appointment Endpoints](#appointment-endpoints)
+  - [Receptionist Endpoints](#receptionist-endpoints)
+  - [Admin Endpoints](#admin-endpoints)
+  - [Doctor Endpoints](#doctor-endpoints)
+  - [Health Check Endpoint](#health-check-endpoint)
 - [Seed Data & Test Accounts](#seed-data--test-accounts)
 - [Team Members](#team-members)
 
@@ -31,14 +40,16 @@ The platform is built as a RESTful API with TypeScript, Express.js, Prisma ORM, 
 
 ### Key Features
 
-- ✅ User authentication with JWT tokens
-- ✅ Role-based access control (Doctor/Patient)
+- ✅ User authentication with JWT + refresh tokens
+- ✅ Role-based access control (Admin / Doctor / Receptionist / Patient)
 - ✅ Time slot management with overlap detection
-- ✅ Appointment booking system
+- ✅ Appointment booking, cancellation, and completion
+- ✅ Receptionist: book on behalf of patient, manage assigned doctors' slots
+- ✅ Admin: user management, RBAC assignments, audit log
 - ✅ Doctor profiles and specialization search
-- ✅ Doctor dashboard with analytics
-- ✅ Comprehensive API documentation
-- ✅ Error handling with custom error types
+- ✅ Structured logging with pino (request IDs, redacted secrets)
+- ✅ Next.js frontend with role-scoped dashboards
+- ✅ Docker Compose for one-command local setup
 
 ---
 
@@ -110,17 +121,19 @@ prisma/
 ### Models
 
 #### **User**
-Represents both doctors and patients in the system.
+Represents all users (Admin / Doctor / Receptionist / Patient).
 
-| Field      | Type      | Description                 |
-| ---------- | --------- | --------------------------- |
-| `id`       | UUID      | Primary key                 |
-| `email`    | String    | Unique email address        |
-| `password` | String    | Bcrypt hashed password      |
-| `name`     | String    | User's full name            |
-| `role`     | Enum      | `DOCTOR` or `PATIENT`       |
-| `createdAt`| DateTime  | Account creation timestamp  |
-| `updatedAt`| DateTime  | Last update timestamp       |
+| Field           | Type      | Description                                       |
+| --------------- | --------- | ------------------------------------------------- |
+| `id`            | UUID      | Primary key                                       |
+| `email`         | String    | Unique email address                              |
+| `password`      | String    | Bcrypt hashed password                            |
+| `name`          | String    | User's full name                                  |
+| `role`          | Enum      | `ADMIN`, `DOCTOR`, `RECEPTIONIST`, `PATIENT`      |
+| `failedLogins`  | Int       | Consecutive failed login counter (lockout)        |
+| `lockedUntil`   | DateTime? | Account locked until this time (null = unlocked)  |
+| `createdAt`     | DateTime  | Account creation timestamp                        |
+| `updatedAt`     | DateTime  | Last update timestamp                             |
 
 #### **Doctor**
 Extended profile for doctor users.
@@ -164,6 +177,44 @@ Booked appointments linking patients to doctor time slots.
 | `notes`    | String | Patient notes/symptoms             |
 | `createdAt`| DateTime| Booking timestamp                  |
 | `updatedAt`| DateTime| Last update timestamp              |
+
+#### **ReceptionistAssignment** _(Part 2)_
+Maps a receptionist user to a doctor they can act on behalf of.
+
+| Field           | Type     | Description                       |
+| --------------- | -------- | --------------------------------- |
+| `id`            | UUID     | Primary key                       |
+| `receptionistId`| UUID     | Foreign key to User (RECEPTIONIST)|
+| `doctorId`      | UUID     | Foreign key to Doctor             |
+| `createdAt`     | DateTime | Assignment creation timestamp     |
+
+**Unique constraint:** `(receptionistId, doctorId)` — one assignment per pair.
+
+#### **RefreshToken** _(Part 2)_
+Persisted refresh tokens for the sliding-window auth flow.
+
+| Field      | Type     | Description                       |
+| ---------- | -------- | --------------------------------- |
+| `id`       | UUID     | Primary key                       |
+| `userId`   | UUID     | Foreign key to User               |
+| `token`    | String   | Hashed refresh token (unique)     |
+| `expiresAt`| DateTime | Token expiry                      |
+| `createdAt`| DateTime | Issue timestamp                   |
+
+#### **AuditLog** _(Part 2)_
+Immutable log of significant actions for compliance.
+
+| Field      | Type     | Description                              |
+| ---------- | -------- | ---------------------------------------- |
+| `id`       | UUID     | Primary key                              |
+| `actorId`  | UUID?    | User who performed the action            |
+| `action`   | String   | Action type (e.g. `SLOT_CREATE`)         |
+| `targetType`| String  | Resource type (e.g. `TimeSlot`)          |
+| `targetId` | String?  | ID of the affected resource              |
+| `metadata` | JSON?    | Additional context (redacted secrets)    |
+| `ip`       | String?  | Client IP                                |
+| `userAgent`| String?  | Client user agent                        |
+| `createdAt`| DateTime | Event timestamp                          |
 
 ---
 
@@ -298,15 +349,68 @@ curl http://localhost:3000/api/health
 
 ### Frontend (Next.js)
 
-The web app lives in [`frontend/`](./frontend) (Next.js App Router + Tailwind).
+The web app lives in [`frontend/`](./frontend) — Next.js 15 App Router, Tailwind CSS v4, and the "Clinical Quiet" design system.
 
 ```bash
 cd frontend
-cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL
+cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL=http://localhost:5000
 npm install
-npm run dev                        # http://localhost:3000
-# or: npm run build && npm start   # production (standalone output)
+npm run dev                        # http://localhost:3001
+# or: npm run build && npm start
 ```
+
+**Pages by role:**
+
+| Role | Pages |
+|------|-------|
+| Patient | `/patient/doctors`, `/patient/doctors/[id]`, `/patient/appointments` |
+| Doctor | `/doctor` (dashboard), `/doctor/appointments`, `/doctor/availability` |
+| Receptionist | `/reception` (pick doctor), `/reception/doctors/[id]` (slots), `/reception/book` (3-step booking), `/reception/appointments` |
+| Admin | `/admin` (users + assignments) |
+
+---
+
+## Docker / Deployment
+
+A `docker-compose.yml` is included for one-command local setup (API + PostgreSQL).
+
+```bash
+# Start full stack (builds API image, runs migrations + seed)
+docker compose up -d --build
+
+# View logs
+docker compose logs -f api
+
+# Tear down (remove volumes too)
+docker compose down -v
+```
+
+The API will be available at `http://localhost:5000` and PostgreSQL at `localhost:5433`.
+
+> **Note:** The frontend is not included in the docker-compose setup — run it locally with `cd frontend && npm run dev`.
+
+---
+
+## Smoke Test
+
+An automated smoke test verifies the full stack end-to-end via docker compose.
+
+**Prerequisites:** `docker`, `curl`, `jq`
+
+```bash
+chmod +x scripts/smoke.sh
+./scripts/smoke.sh
+```
+
+The script:
+1. Runs `docker compose up --build`
+2. Polls `/health` until the API is ready (90s timeout)
+3. Logs in as the seeded admin and captures an access token
+4. Calls `GET /admin/users` and asserts a non-empty user list
+5. Calls `GET /doctors` and `GET /appointments/me`
+6. Always tears down with `docker compose down -v` on exit
+
+Exit code `0` = all steps passed. Each step prints `[PASS]` / `[FAIL]`.
 
 ---
 
@@ -570,6 +674,66 @@ For doctors, the response includes:
 ```bash
 curl -X GET http://localhost:3000/api/auth/me \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+---
+
+### POST `/auth/refresh`
+
+Rotate the refresh token and receive a new access token. The refresh token is
+read from the `refreshToken` HttpOnly cookie set by `/auth/login`.
+
+**Auth:** Cookie (`refreshToken`)
+
+**Response (200 OK):**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "ali.vural@example.com",
+    "name": "Ali Vural",
+    "role": "PATIENT"
+  }
+}
+```
+
+A new `refreshToken` cookie is set on every successful call (token rotation).
+On failure the cookie is cleared and `401` is returned.
+
+**Error Responses:**
+
+| Status | Error                       | Cause                             |
+| ------ | --------------------------- | --------------------------------- |
+| 401    | Refresh token missing       | Cookie absent                     |
+| 401    | Invalid or expired token    | Token revoked, expired, or forged |
+
+**Example cURL:**
+
+```bash
+curl -X POST http://localhost:5000/api/auth/refresh \
+  --cookie "refreshToken=YOUR_REFRESH_TOKEN"
+```
+
+---
+
+### POST `/auth/logout`
+
+Revoke the current refresh token and clear the cookie.
+
+**Auth:** Cookie (`refreshToken`) — no access token required
+
+**Response (204 No Content):** Empty body.
+
+The server deletes the refresh token from the database (even if the cookie
+was already expired or missing) and clears the cookie on the response.
+
+**Example cURL:**
+
+```bash
+curl -X POST http://localhost:5000/api/auth/logout \
+  --cookie "refreshToken=YOUR_REFRESH_TOKEN"
 ```
 
 ---
@@ -892,6 +1056,277 @@ Paginated list of appointments scoped to the authenticated caller:
 curl -X GET "http://localhost:3000/api/appointments/me?status=BOOKED&from=2026-04-01T00:00:00Z&page=1&pageSize=10" \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
+
+---
+
+### PATCH `/appointments/:id/cancel`
+
+Cancel a booked appointment.
+
+**Auth:** Authenticated — caller must be the patient, the doctor, or a receptionist assigned to the doctor
+
+**URL Parameters:**
+- `id` (uuid, required): Appointment ID
+
+**Response (200 OK):**
+
+```json
+{
+  "message": "Appointment cancelled successfully.",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440200",
+    "status": "CANCELLED",
+    "updatedAt": "2026-05-01T12:00:00.000Z"
+  }
+}
+```
+
+The corresponding `TimeSlot.isBooked` is set back to `false` in the same transaction.
+
+**Error Responses:**
+
+| Status | Error                                       | Cause                                   |
+| ------ | ------------------------------------------- | --------------------------------------- |
+| 401    | Authentication required                     | No/invalid token                        |
+| 403    | Not authorized to cancel this appointment   | Caller is not the patient, doctor, or assigned receptionist |
+| 404    | Appointment not found                       | Invalid ID                              |
+| 409    | Cannot cancel an appointment that is already CANCELLED/COMPLETED | Already in terminal state |
+
+**Example cURL:**
+
+```bash
+curl -X PATCH http://localhost:5000/api/appointments/550e8400-e29b-41d4-a716-446655440200/cancel \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+---
+
+### PATCH `/appointments/:id/complete`
+
+Mark an appointment as completed. Only callable once the slot's `endTime` has passed.
+
+**Auth:** Doctor (must own the appointment) or Receptionist assigned to that doctor
+
+**URL Parameters:**
+- `id` (uuid, required): Appointment ID
+
+**Response (200 OK):**
+
+```json
+{
+  "message": "Appointment marked as completed.",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440200",
+    "status": "COMPLETED",
+    "updatedAt": "2026-05-01T12:00:00.000Z"
+  }
+}
+```
+
+**Error Responses:**
+
+| Status | Error                                                    | Cause                               |
+| ------ | -------------------------------------------------------- | ----------------------------------- |
+| 400    | Cannot complete an appointment before its end time       | Slot end time has not passed yet    |
+| 401    | Authentication required                                  | No/invalid token                    |
+| 403    | Only the assigned doctor or receptionist can complete... | Wrong role or not assigned          |
+| 404    | Appointment not found                                    | Invalid ID                          |
+| 409    | Cannot complete an appointment that is already CANCELLED/COMPLETED | Already in terminal state |
+
+**Example cURL:**
+
+```bash
+curl -X PATCH http://localhost:5000/api/appointments/550e8400-e29b-41d4-a716-446655440200/complete \
+  -H "Authorization: Bearer YOUR_DOCTOR_TOKEN_HERE"
+```
+
+---
+
+## Receptionist Endpoints
+
+All endpoints below require `Authorization: Bearer <token>` with a `RECEPTIONIST` role.
+
+### GET `/receptionist/doctors`
+
+List doctors the authenticated receptionist is assigned to.
+
+**Auth:** Receptionist
+
+**Response (200 OK):**
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440010",
+    "specialization": "Cardiology",
+    "bio": "Board-certified cardiologist...",
+    "user": { "id": "...", "name": "Dr. Ayşe Yılmaz", "email": "ayse.yilmaz@medislot.com" }
+  }
+]
+```
+
+**Example cURL:**
+
+```bash
+curl http://localhost:5000/api/receptionist/doctors \
+  -H "Authorization: Bearer RECEPTIONIST_TOKEN"
+```
+
+---
+
+### GET `/receptionist/doctors/:doctorId/slots`
+
+All time slots (booked and available) for an assigned doctor.
+
+**Auth:** Receptionist (must be assigned to the doctor)
+
+**Response (200 OK):** Array of `TimeSlot` objects (same shape as `GET /doctors/:id/slots` but includes booked slots).
+
+**Example cURL:**
+
+```bash
+curl http://localhost:5000/api/receptionist/doctors/DOCTOR_ID/slots \
+  -H "Authorization: Bearer RECEPTIONIST_TOKEN"
+```
+
+---
+
+### POST `/receptionist/doctors/:doctorId/slots`
+
+Create a new time slot for an assigned doctor.
+
+**Auth:** Receptionist (must be assigned to the doctor)
+
+**Request Body:**
+
+```json
+{
+  "startTime": "2026-05-10T09:00:00Z",
+  "endTime": "2026-05-10T09:30:00Z"
+}
+```
+
+**Response (201 Created):** `{ "message": "...", "data": TimeSlot }`
+
+**Error Responses:**
+
+| Status | Error                   | Cause                                  |
+| ------ | ----------------------- | -------------------------------------- |
+| 400    | Invalid input           | Missing/malformed fields               |
+| 400    | Cannot book past slots  | Start time in the past                 |
+| 403    | Not assigned to doctor  | Receptionist not assigned to this doctor |
+| 409    | Slot overlaps           | Overlapping slot exists for that doctor |
+
+---
+
+### DELETE `/receptionist/slots/:slotId`
+
+Delete an unbooked slot managed by the receptionist's assigned doctor.
+
+**Auth:** Receptionist
+
+**Response (200 OK):** `{ "message": "Slot deleted successfully." }`
+
+**Error Responses:** 403 if not assigned, 404 if slot not found, 409 if slot is already booked.
+
+---
+
+### GET `/receptionist/patients`
+
+Patient search typeahead — returns up to 25 patients matching the query.
+
+**Auth:** Receptionist
+
+**Query Parameters:**
+
+| Parameter | Type   | Description                                           |
+| --------- | ------ | ----------------------------------------------------- |
+| `search`  | string | Min 2 chars. Case-insensitive match on name **or** email |
+| `limit`   | int    | Max results (default 10, capped at 25)               |
+
+**Response (200 OK):**
+
+```json
+[
+  { "id": "...", "name": "Ali Vural", "email": "ali.vural@example.com" }
+]
+```
+
+**Example cURL:**
+
+```bash
+curl "http://localhost:5000/api/receptionist/patients?search=ali&limit=10" \
+  -H "Authorization: Bearer RECEPTIONIST_TOKEN"
+```
+
+---
+
+### GET `/receptionist/appointments`
+
+Paginated, filterable list of appointments across all assigned doctors.
+
+**Auth:** Receptionist
+
+**Query Parameters:**
+
+| Parameter  | Type   | Default | Description |
+| ---------- | ------ | ------- | ----------- |
+| `page`     | int    | `1`     | Page number |
+| `pageSize` | int    | `20`    | Items per page (1–100) |
+| `status`   | enum   | —       | `BOOKED` \| `CANCELLED` \| `COMPLETED` |
+| `doctorId` | uuid   | —       | Filter to one assigned doctor |
+| `date`     | date   | —       | Single-day filter (ISO date) |
+
+**Response (200 OK):**
+
+```json
+{
+  "items": [...],
+  "page": 1,
+  "pageSize": 20,
+  "total": 42,
+  "totalPages": 3
+}
+```
+
+**Example cURL:**
+
+```bash
+curl "http://localhost:5000/api/receptionist/appointments?status=BOOKED&page=1" \
+  -H "Authorization: Bearer RECEPTIONIST_TOKEN"
+```
+
+---
+
+### POST `/receptionist/appointments`
+
+Book an appointment on behalf of a patient.
+
+**Auth:** Receptionist (must be assigned to the doctor whose slot is being booked)
+
+**Request Body:**
+
+```json
+{
+  "timeSlotId": "550e8400-e29b-41d4-a716-446655440100",
+  "patientId": "550e8400-e29b-41d4-a716-446655440000",
+  "notes": "Patient reports chest pain."
+}
+```
+
+**Response (201 Created):** Same shape as `POST /appointments`.
+
+**Error Responses:** 400 if slot is already booked or in the past, 403 if not assigned to doctor, 404 if slot or patient not found.
+
+---
+
+### PATCH `/receptionist/appointments/:id/cancel`
+
+Cancel an appointment managed by an assigned doctor (receptionist-scoped alias for cancel).
+
+**Auth:** Receptionist (must be assigned to the appointment's doctor)
+
+**Response (200 OK):** Same shape as `PATCH /appointments/:id/cancel`.
 
 ---
 
@@ -1376,43 +1811,13 @@ For questions or issues, please contact the development team or open an issue on
 
 ---
 
-_Last updated: March 30, 2026_
+_Last updated: May 4, 2026_
 
----
+## Team Members
 
-#### GET /api/slots
-
-Get all available slots  
-**Auth:** Public
-**Response(200):**
-```
-{
-  "message": "Available time slots retrieved successfully.",
-  "slots": [
-    {
-      "id": "uuid-here",
-      "doctorId": "uuid-here",
-      "date": "2026-04-01T00:00:00.000Z",
-      "startTime": "2026-04-01T09:00:00.000Z",
-      "endTime": "2026-04-01T09:30:00.000Z",
-      "isBooked": false,
-      "createdAt": "2026-03-25T10:00:00Z",
-      "doctor": {
-        "user": {
-          "name": "Dr. Name",
-          "email": "drname@example.com"
-        }
-      }
-    }
-  ]
-}
-```
-
-# Team Members
-
-| Fullname          |
-|:------------------|
-| Efe Can Ezenoglu  |
-| Hasan Kaan Doygun |
-| Taha Turkay Aktas |
-| Ahmet Kerem Ince  |
+| Fullname           | Student ID  |
+|:-------------------|:------------|
+| Efe Can Ezenoglu   |             |
+| Hasan Kaan Doygun  |             |
+| Taha Turkay Aktas  |             |
+| Ahmet Kerem Ince   |             |
