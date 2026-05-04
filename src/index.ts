@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import requestLogger from "./middlewares/requestLogger.middleware";
+import logger from "./lib/logger";
 import healthRouter from "./routes/health.routes";
 import errorHandler from "./middlewares/error.middlewares";
 import { apiLimiter } from "./middlewares/rateLimiter.middleware";
@@ -17,6 +19,9 @@ dotenv.config();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
+
+// Request logger — mount before routes so every request is logged
+app.use(requestLogger);
 
 // Security headers — mount as early as possible
 app.use(helmet());
@@ -85,7 +90,7 @@ app.use((_req: Request, res: Response) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`[MidSlot] Server running on http://localhost:${PORT}`);
+  logger.info(`MidSlot API running on http://localhost:${PORT}`);
 });
 
 export default app;
