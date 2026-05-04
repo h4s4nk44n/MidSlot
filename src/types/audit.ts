@@ -27,6 +27,9 @@ export const AuditAction = {
   // Admin: receptionist assignments
   ASSIGNMENT_ADD:    "receptionist.assignment_add",
   ASSIGNMENT_REMOVE: "receptionist.assignment_remove",
+
+  SLOT_CREATE: "slot.create",
+  SLOT_DELETE: "slot.delete",
 } as const;
 
 export type AuditActionType = typeof AuditAction[keyof typeof AuditAction];

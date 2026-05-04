@@ -1,8 +1,10 @@
+import {prisma} from "../lib/prisma";
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import {
   listAssignedDoctors,
   listDoctorAppointments,
+  listSlotsForDoctor,
   createSlotForDoctor,
   deleteSlotForDoctor,
   bookAppointmentOnBehalf,
@@ -41,6 +43,21 @@ export const getDoctorAppointments = async (
   }
 };
 
+export const getDoctorSlots = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const doctorId = req.params.doctorId as string;
+    const slots = await listSlotsForDoctor(userId, doctorId);
+    res.status(200).json(slots);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const postDoctorSlot = async (
   req: AuthRequest,
   res: Response,
@@ -50,6 +67,22 @@ export const postDoctorSlot = async (
     const userId = req.user!.userId;
     const doctorId = req.params.doctorId as string;
     const slot = await createSlotForDoctor(userId, doctorId, req.body);
+
+    audit.log({
+      actorId: userId,
+      action: AuditAction.SLOT_CREATE,
+      targetType: "TimeSlot",
+      targetId: slot.id,
+      metadata: {
+        doctorId,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        createdBy: "RECEPTIONIST",
+      },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
+
     res.status(201).json({
       message: "Time slot created successfully.",
       data: slot,
@@ -67,7 +100,31 @@ export const deleteDoctorSlot = async (
   try {
     const userId = req.user!.userId;
     const slotId = req.params.slotId as string;
+
+    // Fetch slot details BEFORE delete so we can audit-log them.
+    // (deleteSlotForDoctor itself does the same lookup; we accept the
+    // small duplication to keep audit metadata complete.)
+    const slot = await prisma.timeSlot.findUnique({ where: { id: slotId } });
+
     await deleteSlotForDoctor(userId, slotId);
+
+    audit.log({
+      actorId: userId,
+      action: AuditAction.SLOT_DELETE,
+      targetType: "TimeSlot",
+      targetId: slotId,
+      metadata: slot
+        ? {
+            doctorId: slot.doctorId,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            deletedBy: "RECEPTIONIST",
+          }
+        : { deletedBy: "RECEPTIONIST" },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]?.slice(0, 500),
+    });
+
     res.status(200).json({ message: "Time slot deleted successfully." });
   } catch (error) {
     next(error);

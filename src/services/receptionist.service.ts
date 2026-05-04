@@ -235,3 +235,15 @@ export const listAppointmentsForReceptionist = async (
     orderBy: { timeSlot: { startTime: "asc" } },
   });
 };
+
+export const listSlotsForDoctor = async (
+  receptionistUserId: string,
+  doctorId: string,
+) => {
+  await assertReceptionistAssignedToDoctor(receptionistUserId, doctorId);
+
+  return prisma.timeSlot.findMany({
+    where: { doctorId },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
+};
