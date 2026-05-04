@@ -6,6 +6,7 @@ import { paginate, Paginated } from "../utils/pagination";
 interface ListUsersOptions {
   role?: string;
   q?: string;
+  active?: boolean;
   page: number;
   pageSize: number;
 }
@@ -13,11 +14,14 @@ interface ListUsersOptions {
 export const listUsers = async (
   opts: ListUsersOptions,
 ): Promise<Paginated<unknown>> => {
-  const { role, q, page, pageSize } = opts;
+  const { role, q, active, page, pageSize } = opts;
 
   const where: Record<string, unknown> = {};
   if (role && Object.values(Role).includes(role as Role)) {
     where.role = role as Role;
+  }
+  if (typeof active === "boolean") {
+    where.isActive = active;
   }
   if (q) {
     where.OR = [
@@ -36,6 +40,60 @@ export const listUsers = async (
       email: true,
       name: true,
       role: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+};
+
+interface UpdateUserOptions {
+  role?: Role;
+  isActive?: boolean;
+}
+
+/**
+ * Update a user's role and/or active flag.
+ *
+ * Self-lockout protections:
+ *  - An admin cannot demote themselves out of the ADMIN role.
+ *  - An admin cannot deactivate their own account.
+ *
+ * Frontend additionally surfaces a warning banner before either of these
+ * operations is attempted (see /admin/users page) — these checks are the
+ * server-side belt-and-braces.
+ */
+export const updateUser = async (
+  userId: string,
+  currentUserId: string,
+  patch: UpdateUserOptions,
+) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new NotFoundError("User not found.");
+  }
+
+  if (userId === currentUserId) {
+    if (patch.role !== undefined && patch.role !== Role.ADMIN) {
+      throw new BadRequestError("You cannot demote your own admin account.");
+    }
+    if (patch.isActive === false) {
+      throw new BadRequestError("You cannot deactivate your own account.");
+    }
+  }
+
+  const data: Record<string, unknown> = {};
+  if (patch.role !== undefined) data.role = patch.role;
+  if (patch.isActive !== undefined) data.isActive = patch.isActive;
+
+  return prisma.user.update({
+    where: { id: userId },
+    data,
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
       createdAt: true,
     },
   });

@@ -4,11 +4,15 @@ import { BadRequestError } from "../utils/errors";
 import {
   listUsers,
   deleteUser,
+  updateUser,
   createAssignment,
   deleteAssignment,
   listAssignments,
 } from "../services/admin.service";
-import { listAdminUsersQuerySchema } from "../validations/admin.validation";
+import {
+  listAdminUsersQuerySchema,
+  updateAdminUserSchema,
+} from "../validations/admin.validation";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";
 import { prisma } from "../lib/prisma";
@@ -32,8 +36,8 @@ export const getUsers = async (
       });
       return;
     }
-    const { role, q, page, pageSize } = parsed.data;
-    const result = await listUsers({ role, q, page, pageSize });
+    const { role, q, active, page, pageSize } = parsed.data;
+    const result = await listUsers({ role, q, active, page, pageSize });
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -65,6 +69,64 @@ export const removeUser = async (
       userAgent: req.headers["user-agent"]?.slice(0, 500),
     });
     res.status(200).json({ message: "User deleted successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const patchUser = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsed = updateAdminUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid request body",
+        details: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const id = req.params.id as string;
+    const currentUserId = req.user!.userId;
+
+    const before = await prisma.user.findUnique({
+      where: { id },
+      select: { role: true, isActive: true },
+    });
+
+    const updated = await updateUser(id, currentUserId, parsed.data);
+
+    // Emit one audit entry per logical action so the audit log stays readable.
+    if (parsed.data.role !== undefined && before && before.role !== parsed.data.role) {
+      audit.log({
+        actorId: currentUserId,
+        action: AuditAction.USER_ROLE_CHANGE,
+        targetType: "User",
+        targetId: id,
+        metadata: { from: before.role, to: parsed.data.role },
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]?.slice(0, 500),
+      });
+    }
+    if (parsed.data.isActive !== undefined && before && before.isActive !== parsed.data.isActive) {
+      audit.log({
+        actorId: currentUserId,
+        action: AuditAction.USER_DEACTIVATE,
+        targetType: "User",
+        targetId: id,
+        metadata: { isActive: parsed.data.isActive },
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]?.slice(0, 500),
+      });
+    }
+
+    res.status(200).json(updated);
   } catch (error) {
     next(error);
   }

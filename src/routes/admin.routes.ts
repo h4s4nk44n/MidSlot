@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getUsers,
   removeUser,
+  patchUser,
   postAssignment,
   removeAssignment,
   getAssignments,
@@ -14,6 +15,7 @@ const router = Router();
 router.use(authenticate, authorize("ADMIN"));
 
 router.get("/users", getUsers);
+router.patch("/users/:id", patchUser);
 router.delete("/users/:id", removeUser);
 
 router.get("/assignments", getAssignments);
