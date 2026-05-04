@@ -1,11 +1,5 @@
 /**
  * Typed fetch wrapper for the MediSlot backend.
- *
- * MEDI-84: base wrapper with token injection, abort + timeout, typed errors.
- * MEDI-85: 401 -> /auth/refresh -> retry -> logout-on-second-fail (single-flight).
- *
- * No React imports — safe to use in server components, route handlers, and
- * client components.
  */
 
 export class ApiError extends Error {
@@ -23,18 +17,10 @@ export class ApiError extends Error {
 }
 
 export interface ApiRequestOptions extends Omit<RequestInit, "body" | "signal"> {
-  /** JSON body (will be serialised and Content-Type set automatically). */
   body?: unknown;
-  /** User-supplied abort signal. Will be composed with the timeout signal. */
   signal?: AbortSignal;
-  /** Request timeout in ms. Default 15000. Pass `0` to disable. */
   timeoutMs?: number;
-  /**
-   * Internal flag — set to true when we are performing the retry attempt
-   * after a successful token refresh so we don't loop forever.
-   */
   _isRetry?: boolean;
-  /** Skip the refresh/retry flow (e.g. for the refresh call itself). */
   _skipRefresh?: boolean;
 }
 
@@ -44,23 +30,30 @@ type TokenGetter = () => string | null;
 type TokenSetter = (token: string | null) => void;
 type LogoutCallback = () => void;
 
-let getAccessToken: TokenGetter = () => null;
-let setAccessToken: TokenSetter = () => {};
+let memoryToken: string | null = null;
+
+let getAccessToken: TokenGetter = () => {
+  if (memoryToken) return memoryToken;
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("medislot_token");
+  }
+  return null;
+};
+
+let setAccessToken: TokenSetter = (token: string | null) => {
+  memoryToken = token;
+  if (typeof window !== "undefined") {
+    if (token) localStorage.setItem("medislot_token", token);
+    else localStorage.removeItem("medislot_token");
+  }
+};
 const logoutListeners = new Set<LogoutCallback>();
 
-/**
- * Wire the wrapper to an access-token store. The provider (see auth-context)
- * registers its in-memory token here. Keep the store OUT of localStorage.
- */
 export function configureTokenStore(getter: TokenGetter, setter: TokenSetter) {
   getAccessToken = getter;
   setAccessToken = setter;
 }
 
-/**
- * Register a callback that fires when the wrapper decides the session is dead
- * (e.g. refresh failed, or a second 401 after a successful refresh).
- */
 export function onLogout(cb: LogoutCallback): () => void {
   logoutListeners.add(cb);
   return () => logoutListeners.delete(cb);
@@ -72,7 +65,7 @@ function triggerLogout() {
     try {
       cb();
     } catch {
-      // listeners must not break other listeners
+      // ignore
     }
   }
 }
@@ -93,14 +86,13 @@ export async function refreshAccessToken(): Promise<string | null> {
         headers: { "Content-Type": "application/json" },
       });
       if (!res.ok) return null;
-      const data = (await safeJson(res)) as { accessToken?: string } | null;
-      const next = data?.accessToken ?? null;
+      const data = (await safeJson(res)) as { token?: string } | null;
+      const next = data?.token ?? null;
       if (next) setAccessToken(next);
       return next;
     } catch {
       return null;
     } finally {
-      // release on next microtask so concurrent awaiters all see the same value
       queueMicrotask(() => {
         refreshInFlight = null;
       });
@@ -113,19 +105,15 @@ export async function refreshAccessToken(): Promise<string | null> {
 // ------------------------ helpers ------------------------
 
 function getBaseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_API_URL;
-  if (!url) {
-    throw new ApiError(
-      "NEXT_PUBLIC_API_URL is not set. Copy .env.local.example to .env.local.",
-      0,
-      "CONFIG_MISSING",
-    );
-  }
+  // .env'den okumaya çalış, olmazsa direkt yaz
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  const fallbackUrl = "http://localhost:5000/api";
+  
+  const url = (envUrl && envUrl !== "") ? envUrl : fallbackUrl;
   return url.replace(/\/$/, "");
 }
 
 async function safeJson(res: Response): Promise<unknown> {
-  // 204 No Content / empty body / non-JSON: don't crash.
   if (res.status === 204) return null;
   const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) return null;
@@ -179,6 +167,7 @@ export async function api<T = unknown>(path: string, opts: ApiRequestOptions = {
   } = opts;
 
   const token = getAccessToken();
+  console.log("Şu anki bilet (Token):", token);
 
   const finalHeaders: Record<string, string> = {
     Accept: "application/json",
@@ -197,7 +186,7 @@ export async function api<T = unknown>(path: string, opts: ApiRequestOptions = {
       ...rest,
       headers: finalHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),
-      credentials: "include",
+      credentials: "include", // Çerezleri backend'e gönderir
       signal,
     });
   } catch (err: unknown) {
@@ -213,7 +202,6 @@ export async function api<T = unknown>(path: string, opts: ApiRequestOptions = {
   }
   clear();
 
-  // 401 handling: single refresh + single retry, per request.
   if (res.status === 401 && !_skipRefresh && !_isRetry) {
     const newToken = await refreshAccessToken();
     if (!newToken) {
@@ -222,6 +210,7 @@ export async function api<T = unknown>(path: string, opts: ApiRequestOptions = {
     }
     return api<T>(path, { ...opts, _isRetry: true });
   }
+  
   if (res.status === 401 && _isRetry) {
     triggerLogout();
     throw new ApiError("Session expired", 401, "SESSION_EXPIRED");
@@ -242,7 +231,6 @@ export async function api<T = unknown>(path: string, opts: ApiRequestOptions = {
   return (payload ?? (undefined as unknown)) as T;
 }
 
-// Convenience helpers — thin sugar over api().
 export const apiGet = <T = unknown>(path: string, opts?: ApiRequestOptions) =>
   api<T>(path, { ...opts, method: "GET" });
 
