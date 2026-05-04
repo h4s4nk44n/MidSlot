@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getAssignedDoctors,
   getDoctorAppointments,
+  getDoctorSlots,
   postDoctorSlot,
   deleteDoctorSlot,
   postAppointmentOnBehalf,
@@ -21,6 +22,7 @@ router.use(authenticate, authorize("RECEPTIONIST"));
 
 router.get("/doctors", getAssignedDoctors);
 router.get("/doctors/:doctorId/appointments", getDoctorAppointments);
+router.get("/doctors/:doctorId/slots", getDoctorSlots);
 
 router.post("/doctors/:doctorId/slots", validate(receptionistCreateSlotSchema), postDoctorSlot);
 router.delete("/slots/:slotId", deleteDoctorSlot);
