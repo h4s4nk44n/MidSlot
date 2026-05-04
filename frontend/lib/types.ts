@@ -22,6 +22,15 @@ export interface Paginated<T> {
   totalPages: number;
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface Doctor {
   id: string;
   userId: string;
