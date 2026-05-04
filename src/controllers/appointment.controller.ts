@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import logger from "../lib/logger";
 import {
   NotFoundError,
   BadRequestError,
@@ -73,7 +74,7 @@ export const getMyAppointments = async (req: Request, res: Response): Promise<vo
     res.status(200).json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[getMyAppointments] Error:", error);
+    logger.error({ err: error }, "[getMyAppointments] Error");
     res.status(500).json({ message: "Internal Server Error", error: message });
   }
 };

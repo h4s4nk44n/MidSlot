@@ -9,6 +9,8 @@ import {
   deleteDoctorSlot,
 } from "@/lib/receptionist-api";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { TimeSlot } from "@/lib/types";
 
 export default function ReceptionAvailabilityPage() {
@@ -182,31 +184,30 @@ export default function ReceptionAvailabilityPage() {
       {/* ── Slots card ── */}
       <div className="rounded-lg border border-border bg-surface-raised shadow-xs p-6">
         {loading ? (
-          <div className="flex h-40 items-center justify-center">
-            <div className="h-6 w-6 animate-spin rounded-full border-[1.5px] border-text-muted border-t-transparent" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" aria-busy="true" aria-label="Loading slots">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-md border border-border bg-surface-base p-4 space-y-2">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
           </div>
         ) : error ? (
-          <div className="rounded-md border border-danger-border bg-danger-bg px-3 py-2.5 text-sm text-danger-fg">
-            {error}
+          <div role="alert" className="rounded-md border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-fg flex items-center justify-between">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={fetchSlots}>Retry</Button>
           </div>
         ) : slots.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100">
-              <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          <EmptyState
+            icon={
+              <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-            </div>
-            <h3
-              className="mb-2 font-display text-xl font-normal text-text-primary"
-              style={{ letterSpacing: "-0.015em" }}
-            >
-              No upcoming slots.
-            </h3>
-            <p className="mb-6 max-w-[40ch] text-sm text-text-muted">
-              {activeDoctor.user.name} has no open slots for future dates. Add availability below.
-            </p>
-            <Button onClick={handleOpenModal}>Add slot</Button>
-          </div>
+            }
+            heading="No upcoming slots"
+            body={`${activeDoctor.user.name} has no open slots for future dates. Add availability now.`}
+            action={{ label: "Add slot", onClick: handleOpenModal }}
+          />
         ) : (
           <div className="space-y-8">
             {Object.keys(groupedSlots).map((dateKey) => (
@@ -278,8 +279,9 @@ export default function ReceptionAvailabilityPage() {
 
             <div className="mb-6 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-text-primary">Date</label>
+                <label htmlFor="slot-date" className="mb-1 block text-sm font-medium text-text-primary">Date</label>
                 <input
+                  id="slot-date"
                   type="date"
                   min={new Date().toISOString().split("T")[0]}
                   value={formData.date}
@@ -289,8 +291,9 @@ export default function ReceptionAvailabilityPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-text-primary">Start</label>
+                  <label htmlFor="slot-start" className="mb-1 block text-sm font-medium text-text-primary">Start</label>
                   <input
+                    id="slot-start"
                     type="time"
                     value={formData.startTime}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
@@ -298,8 +301,9 @@ export default function ReceptionAvailabilityPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-text-primary">End</label>
+                  <label htmlFor="slot-end" className="mb-1 block text-sm font-medium text-text-primary">End</label>
                   <input
+                    id="slot-end"
                     type="time"
                     value={formData.endTime}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}

@@ -126,7 +126,8 @@ export function SlotPicker({ doctor, selected, onChange }: SlotPickerProps) {
         </p>
         <button
           onClick={loadSlots}
-          className="font-mono text-2xs font-medium uppercase tracking-widest text-primary-700 hover:underline"
+          aria-label="Refresh slot list"
+          className="font-mono text-2xs font-medium uppercase tracking-widest text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-sm"
         >
           Refresh
         </button>
@@ -149,7 +150,7 @@ export function SlotPicker({ doctor, selected, onChange }: SlotPickerProps) {
                   onClick={() => onChange(slot)}
                   title={isBooked ? "This slot is already booked" : undefined}
                   className={[
-                    "flex flex-col items-center justify-center rounded-md border px-2 py-3 text-center transition-all",
+                    "flex flex-col items-center justify-center rounded-md border px-2 py-3 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1",
                     isBooked
                       ? "cursor-not-allowed border-neutral-200 bg-neutral-100 text-text-muted opacity-60"
                       : isSelected
