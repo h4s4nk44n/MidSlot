@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useActiveDoctor } from "@/lib/active-doctor-context";
 import { ActingAsSwitcher } from "@/components/reception/ActingAsSwitcher";
 
 export function TopNav() {
   const { user, logout, status } = useAuth();
+  const { activeDoctor } = useActiveDoctor();
 
   return (
     <header className="h-topnav sticky top-0 z-20 border-b border-border bg-surface-raised">
@@ -113,14 +115,34 @@ export function TopNav() {
 
                 {/* Receptionist Links */}
                 {user.role === "RECEPTIONIST" && (
-                  <li>
-                    <Link
-                      href="/reception"
-                      className="no-underline transition-colors hover:text-text-primary"
-                    >
-                      My doctors
-                    </Link>
-                  </li>
+                  <>
+                    <li>
+                      <Link
+                        href="/reception"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
+                        My doctors
+                      </Link>
+                    </li>
+                    <li>
+                      {activeDoctor ? (
+                        <Link
+                          href="/reception/book"
+                          className="no-underline transition-colors hover:text-text-primary"
+                        >
+                          Book appointment
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/reception"
+                          title="Select a doctor first"
+                          className="cursor-not-allowed text-text-muted no-underline"
+                        >
+                          Book appointment
+                        </Link>
+                      )}
+                    </li>
+                  </>
                 )}
 
                 {/* Admin Links */}
