@@ -10,9 +10,29 @@ import {
   bookAppointmentOnBehalf,
   cancelAppointmentOnBehalf,
   listAppointmentsForReceptionist,
+  searchPatients,
 } from "../services/receptionist.service";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";
+
+export const getPatients = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const q = String(req.query.search ?? "").trim();
+    const limit = Math.min(Number(req.query.limit ?? 10), 25);
+    if (q.length < 2) {
+      res.status(200).json([]);
+      return;
+    }
+    const patients = await searchPatients(q, limit);
+    res.status(200).json(patients);
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getAssignedDoctors = async (
   req: AuthRequest,

@@ -171,7 +171,12 @@ export default function ReceptionAvailabilityPage() {
           </div>
         </div>
 
-        <Button onClick={handleOpenModal}>+ Add slot</Button>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => router.push("/reception/book")}>
+            Book appointment
+          </Button>
+          <Button onClick={handleOpenModal}>+ Add slot</Button>
+        </div>
       </header>
 
       {/* ── Slots card ── */}
