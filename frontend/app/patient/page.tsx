@@ -1,8 +1,7 @@
 import Link from "next/link";
 
 /**
- * Patient home — placeholder until MEDI-58 (Patient Browse) lands.
- * For now: greet the user, point them to the doctors flow.
+ * Patient home — Updated to point to the new doctors flow (MEDI-55).
  */
 export default function PatientHome() {
   return (
@@ -24,17 +23,17 @@ export default function PatientHome() {
 
       <section className="rounded-lg border border-border bg-surface-raised p-8 text-center shadow-xs">
         <h2 className="font-display text-lg font-medium text-text-primary">
-          Booking flow lands soon.
+          Ready to find a doctor?
         </h2>
         <p className="mt-2 text-sm text-text-muted">
-          The doctor browser and booking modal arrive with MEDI-58.
+          The doctor browser is now available. Start searching and filtering.
         </p>
         <div className="mt-5 flex justify-center gap-3">
           <Link
-            href="/"
+            href="/patient/doctors"
             className="inline-flex h-[34px] items-center justify-center rounded-md border border-border-strong bg-surface-raised px-3.5 text-sm font-medium text-text-primary no-underline transition-colors hover:bg-neutral-50"
           >
-            Back to home
+            Browse Doctors
           </Link>
         </div>
       </section>
