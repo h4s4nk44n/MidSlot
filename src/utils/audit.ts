@@ -1,6 +1,7 @@
 import { Request } from "express";
 import { prisma } from "../lib/prisma";
 import { AuditActionType } from "../types/audit";
+import logger from "../lib/logger";
 
 // Keys whose values must be redacted before persisting metadata.
 // Match is case-insensitive and applies recursively to nested objects.
@@ -97,11 +98,7 @@ export function log(input: AuditLogInput): void {
         },
       });
     } catch (err) {
-      console.error("[audit] failed to write log entry", {
-        action: input.action,
-        actorId: input.actorId,
-        error: err instanceof Error ? err.message : err,
-      });
+      logger.error({ action: input.action, actorId: input.actorId, err }, "[audit] failed to write log entry");
     }
   });
 }
