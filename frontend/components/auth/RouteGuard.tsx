@@ -26,12 +26,6 @@ export function RouteGuard({ roles, children }: RouteGuardProps) {
 
    // console.log("[RouteGuard] status:", status, "user role:", user?.role, "needs:", roles); debugging
 
-  useEffect(() => {
-    if (status !== "unauthenticated") return;
-    const from =
-      typeof window !== "undefined" ? window.location.pathname : "/";
-    router.replace(`/login?from=${encodeURIComponent(from)}`);
-  }, [status, router]);
 
   if (status === "loading") return <RouteGuardLoading />;
   if (status === "unauthenticated") return <RouteGuardLoading />; // brief flash before redirect
