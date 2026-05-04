@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getPatients,
   getAssignedDoctors,
   getDoctorAppointments,
   getDoctorSlots,
@@ -20,6 +21,7 @@ const router = Router();
 
 router.use(authenticate, authorize("RECEPTIONIST"));
 
+router.get("/patients", getPatients);
 router.get("/doctors", getAssignedDoctors);
 router.get("/doctors/:doctorId/appointments", getDoctorAppointments);
 router.get("/doctors/:doctorId/slots", getDoctorSlots);

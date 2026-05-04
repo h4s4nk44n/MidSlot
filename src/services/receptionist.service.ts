@@ -236,6 +236,21 @@ export const listAppointmentsForReceptionist = async (
   });
 };
 
+export const searchPatients = async (q: string, limit: number) => {
+  return prisma.user.findMany({
+    where: {
+      role: Role.PATIENT,
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+    take: limit,
+  });
+};
+
 export const listSlotsForDoctor = async (
   receptionistUserId: string,
   doctorId: string,
