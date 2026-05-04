@@ -171,6 +171,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setStatus("unauthenticated");
     writeCachedUser(null);
+    if (typeof window !== "undefined") {
+    sessionStorage.removeItem("midslot_active_doctor");
+    }
     if (typeof window !== "undefined") window.location.assign("/login");
   }, [setAccessToken]);
 
