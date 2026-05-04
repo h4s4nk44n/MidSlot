@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
+import { ActiveDoctorProvider } from "@/lib/active-doctor-context";
 import { TopNav } from "@/components/ui/TopNav";
 import "./globals.css";
 
@@ -43,25 +44,24 @@ export default function RootLayout({
     >
       <body className="flex min-h-screen flex-col bg-surface-page text-text-body">
         <AuthProvider>
-          
-          {/* Dynamic Top Navigation */}
-          <TopNav />
+          <ActiveDoctorProvider>
+            <TopNav />
 
-          <main className="mx-auto flex-1 w-full max-w-content px-6 py-12">
-            {children}
-          </main>
+            <main className="mx-auto flex-1 w-full max-w-content px-6 py-12">
+              {children}
+            </main>
 
-          {/* Toasts — bottom-right stack, tinted. DESIGN.md §4 Toast. */}
-          <Toaster
-            richColors
-            position="bottom-right"
-            toastOptions={{
-              style: {
-                fontFamily: "var(--font-sans)",
-                borderRadius: "var(--radius-md)",
-              },
-            }}
-          />
+            <Toaster
+              richColors
+              position="bottom-right"
+              toastOptions={{
+                style: {
+                  fontFamily: "var(--font-sans)",
+                  borderRadius: "var(--radius-md)",
+                },
+              }}
+            />
+          </ActiveDoctorProvider>
         </AuthProvider>
       </body>
     </html>

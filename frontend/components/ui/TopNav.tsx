@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { ActingAsSwitcher } from "@/components/reception/ActingAsSwitcher";
 
 export function TopNav() {
   const { user, logout, status } = useAuth();
@@ -9,7 +10,6 @@ export function TopNav() {
   return (
     <header className="h-topnav sticky top-0 z-20 border-b border-border bg-surface-raised">
       <nav className="mx-auto flex h-full max-w-content items-center justify-between px-6">
-        
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-2.5 text-text-primary no-underline">
           <span
@@ -27,16 +27,20 @@ export function TopNav() {
           </span>
         </Link>
 
-        {/* Right Side: User Info & Links */}
-        <div className="flex items-center">
-          
+        {/* Right Side: User Info, Acting-as switcher, Links */}
+        <div className="flex items-center gap-4">
+          {/* Acting-as switcher: only renders for RECEPTIONIST (component returns null for other roles). */}
+          <ActingAsSwitcher />
+
           {/* User Info Block */}
           {status !== "loading" && user && (
-            <div className="mr-5 pr-5 border-r border-border hidden sm:flex flex-col items-end">
+            <div className="hidden flex-col items-end border-r border-border pr-5 sm:flex">
               <span className="text-sm font-semibold text-text-primary">
-                {user.role === "DOCTOR" && !user.name.startsWith("Dr.") ? `Dr. ${user.name}` : user.name}
+                {user.role === "DOCTOR" && !user.name.startsWith("Dr.")
+                  ? `Dr. ${user.name}`
+                  : user.name}
               </span>
-              <span className="text-xs font-medium text-text-muted capitalize">
+              <span className="text-xs font-medium capitalize text-text-muted">
                 {user.role.toLowerCase()}
               </span>
             </div>
@@ -59,12 +63,18 @@ export function TopNav() {
                 {user.role === "PATIENT" && (
                   <>
                     <li>
-                      <Link href="/patient/doctors" className="no-underline transition-colors hover:text-text-primary">
+                      <Link
+                        href="/patient/doctors"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
                         Find a doctor
                       </Link>
                     </li>
                     <li>
-                      <Link href="/patient/appointments" className="no-underline transition-colors hover:text-text-primary">
+                      <Link
+                        href="/patient/appointments"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
                         My appointments
                       </Link>
                     </li>
@@ -75,21 +85,54 @@ export function TopNav() {
                 {user.role === "DOCTOR" && (
                   <>
                     <li>
-                      <Link href="/doctor" className="no-underline transition-colors hover:text-text-primary">
+                      <Link
+                        href="/doctor"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
                         Dashboard
                       </Link>
                     </li>
                     <li>
-                      <Link href="/doctor/appointments" className="no-underline transition-colors hover:text-text-primary">
+                      <Link
+                        href="/doctor/appointments"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
                         Appointments
                       </Link>
                     </li>
                     <li>
-                      <Link href="/doctor/availability" className="no-underline transition-colors hover:text-text-primary">
+                      <Link
+                        href="/doctor/availability"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
                         Availability
                       </Link>
                     </li>
                   </>
+                )}
+
+                {/* Receptionist Links */}
+                {user.role === "RECEPTIONIST" && (
+                  <li>
+                    <Link
+                      href="/reception"
+                      className="no-underline transition-colors hover:text-text-primary"
+                    >
+                      My doctors
+                    </Link>
+                  </li>
+                )}
+
+                {/* Admin Links */}
+                {user.role === "ADMIN" && (
+                  <li>
+                    <Link
+                      href="/admin"
+                      className="no-underline transition-colors hover:text-text-primary"
+                    >
+                      Admin
+                    </Link>
+                  </li>
                 )}
 
                 {/* Universal Sign Out Button */}
