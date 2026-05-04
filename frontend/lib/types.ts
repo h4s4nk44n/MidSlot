@@ -34,3 +34,23 @@ export interface Doctor {
     email: string;
   };
 }
+
+export interface DoctorMinimal {
+  id: string;
+  specialization?: string | null;
+  bio?: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface TimeSlot {
+  id: string;
+  doctorId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isBooked: boolean;
+}
