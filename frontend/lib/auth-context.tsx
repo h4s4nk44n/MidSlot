@@ -28,7 +28,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 interface LoginResponse {
-  accessToken: string;
+  token: string;
   user: User;
 }
 
@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         { email, password },
         { _skipRefresh: true },
       );
-      setAccessToken(res.accessToken);
+      setAccessToken(res.token);
       setUser(res.user);
       setStatus("authenticated");
       writeCachedUser(res.user);
