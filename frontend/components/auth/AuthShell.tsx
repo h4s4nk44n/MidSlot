@@ -33,7 +33,7 @@ export function AuthShell({
   compliance,
 }: AuthShellProps) {
   return (
-    <div className="-mx-6 -my-12 grid min-h-[calc(100vh-var(--layout-topnav))] grid-cols-1 lg:grid-cols-[1fr_560px]">
+    <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] -my-12 grid min-h-screen w-screen grid-cols-1 lg:grid-cols-[1fr_560px]">
       {/* ==== LEFT — editorial dark panel ==== */}
       <aside className="auth-left relative hidden flex-col overflow-hidden px-14 py-10 text-white lg:flex">
         {/* gradient + grid overlays — declared in <style> below */}
@@ -258,7 +258,7 @@ export function AuthShell({
   );
 }
 
-/** Tek satır "prompt + link" yardımcısı — top-right ya da footer'da. */
+/** Single-line "prompt + link" helper — used in the top-right or footer. */
 export function AuthSwitchLink({
   prompt,
   href,
@@ -281,7 +281,7 @@ export function AuthSwitchLink({
   );
 }
 
-/** HIPAA strip — login'de güzel duruyor; register'da göstermiyoruz. */
+/** HIPAA strip — looks good on login; we don't show it on register. */
 export function ComplianceStrip() {
   return (
     <div className="flex items-center gap-4 rounded-md border border-border bg-neutral-50 px-3.5 py-3">

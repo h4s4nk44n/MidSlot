@@ -2,7 +2,7 @@ import audit, { stripSensitive } from "../utils/audit";
 import { AuditAction } from "../types/audit";
 import { prisma } from "../lib/prisma";
 
-// Helper: setImmediate'in tamamlanmasını bekle
+// Helper: wait for setImmediate to complete
 const flushSetImmediate = () => new Promise((resolve) => setImmediate(resolve));
 
 describe("audit helper", () => {
@@ -78,9 +78,9 @@ describe("audit helper", () => {
         ip: "127.0.0.1",
       });
 
-      // setImmediate'in çalışmasını bekle
+      // Wait for setImmediate to run
       await flushSetImmediate();
-      // Bir tick daha — DB write tamamlansın diye
+      // One more tick — to let the DB write complete
       await new Promise((r) => setTimeout(r, 50));
 
       const entry = await prisma.auditLog.findFirst({

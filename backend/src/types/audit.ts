@@ -12,6 +12,8 @@ export const AuditAction = {
   LOGIN_FAILED:     "login.failed",
   LOGIN_LOCKED:     "login.locked",
   LOGOUT:           "auth.logout",
+  TOKEN_REUSE_DETECTED: "auth.token_reuse_detected",
+  SMS_CODE_SEND:    "sms.code_send",
 
   // Appointments
   APPOINTMENT_BOOK:          "appointment.book",

@@ -36,13 +36,13 @@ export default function AvailabilityManagementPage() {
       const res = await apiGet<TimeSlot[] | { items: TimeSlot[] }>("/slots");
       const extractedSlots = Array.isArray(res) ? res : (res as { items: TimeSlot[] }).items || [];
       
-      // KESİN ÇÖZÜM: Sadece bitiş saati şu andan ileride olanları (Geçmişte kalmayanları) göster
+      // DEFINITIVE FIX: Only show slots whose end time is in the future (exclude past slots)
       const nowMs = Date.now();
       const futureSlots = extractedSlots.filter(
         (slot) => new Date(slot.endTime).getTime() > nowMs
       );
 
-      // Kronolojik sırala
+      // Sort chronologically
       const sorted = futureSlots.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
       setSlots(sorted);
     } catch (err: any) {
@@ -59,7 +59,7 @@ export default function AvailabilityManagementPage() {
   const groupedSlots = useMemo(() => {
     const groups: Record<string, TimeSlot[]> = {};
     slots.forEach((slot) => {
-      // Yerel saate göre gruplama (Timezone kaymasını engeller)
+      // Group by local time (prevents timezone offset issues)
       const d = new Date(slot.startTime);
       const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       

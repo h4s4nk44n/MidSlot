@@ -8,7 +8,7 @@ process.env.DISABLE_RATE_LIMIT = "true";
 import app from "../index";
 
 const flushAudit = async () => {
-  // setImmediate + DB write için yeterli süre bekle
+  // Wait long enough for setImmediate + DB write
   await new Promise((r) => setImmediate(r));
   await new Promise((r) => setTimeout(r, 100));
 };
@@ -111,7 +111,7 @@ describe("Audit log emission across flows", () => {
 
       await flushAudit();
 
-      // Hiçbir audit log'da bu password görünmemeli
+      // This password must not appear in any audit log
       const allLogs = await prisma.auditLog.findMany({
         where: { actorId: userId },
       });

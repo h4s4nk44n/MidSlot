@@ -56,26 +56,34 @@ export const createSlot = async (
 
     const doctor = await resolveDoctorForRequest(req);
 
-    const overlapping = await prisma.timeSlot.findFirst({
-      where: {
-        doctorId: doctor.id,
-        date: requestedDate,
-        AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
+    // HIGH-007: Serializable transaction to close the check-then-act race
+    // between two simultaneous create requests. With SERIALIZABLE isolation
+    // Postgres aborts one of the two transactions if they would both create
+    // overlapping rows, surfacing as a retryable error rather than two
+    // committed overlapping slots.
+    const newSlot = await prisma.$transaction(
+      async (tx) => {
+        const overlapping = await tx.timeSlot.findFirst({
+          where: {
+            doctorId: doctor.id,
+            date: requestedDate,
+            AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
+          },
+        });
+        if (overlapping) {
+          throw new ConflictError("Time slot overlaps with existing slot");
+        }
+        return tx.timeSlot.create({
+          data: {
+            doctorId: doctor.id,
+            date: requestedDate,
+            startTime: start,
+            endTime: end,
+          },
+        });
       },
-    });
-
-    if (overlapping) {
-      throw new ConflictError("Time slot overlaps with existing slot");
-    }
-
-    const newSlot = await prisma.timeSlot.create({
-      data: {
-        doctorId: doctor.id,
-        date: requestedDate,
-        startTime: start,
-        endTime: end,
-      },
-    });
+      { isolationLevel: "Serializable" },
+    );
 
     res.status(201).json({
       message: "Time slot created successfully.",
@@ -189,27 +197,32 @@ export const updateSlot = async (
       throw new BadRequestError("Start time must be before end time.");
     }
 
-    const overlapping = await prisma.timeSlot.findFirst({
-      where: {
-        doctorId: currentSlot.doctorId,
-        date: newDate,
-        id: { not: id },
-        AND: [{ startTime: { lt: newEnd } }, { endTime: { gt: newStart } }],
+    // HIGH-007: same Serializable transaction pattern as createSlot — closes
+    // the check-then-act race between two concurrent updates.
+    const updatedSlot = await prisma.$transaction(
+      async (tx) => {
+        const overlapping = await tx.timeSlot.findFirst({
+          where: {
+            doctorId: currentSlot.doctorId,
+            date: newDate,
+            id: { not: id },
+            AND: [{ startTime: { lt: newEnd } }, { endTime: { gt: newStart } }],
+          },
+        });
+        if (overlapping) {
+          throw new ConflictError("Update fails: Overlaps with another slot.");
+        }
+        return tx.timeSlot.update({
+          where: { id },
+          data: {
+            ...(date && { date: newDate }),
+            ...(startTime && { startTime: newStart }),
+            ...(endTime && { endTime: newEnd }),
+          },
+        });
       },
-    });
-
-    if (overlapping) {
-      throw new ConflictError("Update fails: Overlaps with another slot.");
-    }
-
-    const updatedSlot = await prisma.timeSlot.update({
-      where: { id },
-      data: {
-        ...(date && { date: newDate }),
-        ...(startTime && { startTime: newStart }),
-        ...(endTime && { endTime: newEnd }),
-      },
-    });
+      { isolationLevel: "Serializable" },
+    );
 
     res.status(200).json({
       message: `Time slot updated successfully.`,

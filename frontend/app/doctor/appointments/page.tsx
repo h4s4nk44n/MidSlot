@@ -325,6 +325,12 @@ export default function DoctorAppointmentsPage() {
               {appointments.items.map((apt) => {
                 const { dateStr, timeStr } = formatDateTime(apt.timeSlot.startTime);
                 const inSession = !!apt.startedAt && !apt.endedAt;
+                const slotStart = new Date(apt.timeSlot.startTime);
+                const today = new Date();
+                const isToday =
+                  slotStart.getFullYear() === today.getFullYear() &&
+                  slotStart.getMonth() === today.getMonth() &&
+                  slotStart.getDate() === today.getDate();
 
                 return (
                   <div key={apt.id} className="flex flex-col sm:flex-row sm:items-start justify-between rounded-lg border border-border bg-surface-base p-5 transition-all hover:border-border-strong hover:shadow-sm">
@@ -367,13 +373,15 @@ export default function DoctorAppointmentsPage() {
                     {apt.status === "BOOKED" && activeTab === "upcoming" && (
                       <div className="flex flex-col shrink-0 sm:ml-4 gap-2">
                         {!apt.startedAt ? (
-                          <Button
-                            onClick={() => handleStart(apt.id)}
-                            loading={actionId === apt.id}
-                            className="w-full sm:w-auto"
-                          >
-                            Start Appointment
-                          </Button>
+                          isToday && (
+                            <Button
+                              onClick={() => handleStart(apt.id)}
+                              loading={actionId === apt.id}
+                              className="w-full sm:w-auto"
+                            >
+                              Start Appointment
+                            </Button>
+                          )
                         ) : (
                           <>
                             <Button

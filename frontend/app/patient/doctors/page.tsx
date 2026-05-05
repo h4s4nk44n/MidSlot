@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import type { Doctor, Gender, Paginated } from "@/lib/types";
 import { DOCTOR_TITLES, doctorDisplayName, type DoctorTitle } from "@/lib/doctor-name";
 
-// --- Debounce Hook (Kullanıcı her harf yazdığında API'yi yormamak için) ---
+// --- Debounce Hook (so we don't hammer the API on every keystroke) ---
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -55,14 +55,14 @@ function ageFromDob(dob: string | null | undefined): number | null {
 export default function BrowseDoctorsPage() {
   const router = useRouter();
 
-  // --- State Tanımlamaları ---
+  // --- State definitions ---
   const [data, setData] = useState<Paginated<Doctor> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [specializations, setSpecializations] = useState<string[]>([]);
 
-  // Filtreler
+  // Filters
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [specialization, setSpecialization] = useState("");
@@ -73,7 +73,7 @@ export default function BrowseDoctorsPage() {
   const [page, setPage] = useState(1);
   const pageSize = 9;
 
-  // --- API İsteği ---
+  // --- API request ---
   const fetchDoctors = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -101,7 +101,7 @@ export default function BrowseDoctorsPage() {
     }
   }, [page, pageSize, debouncedSearch, specialization, title, gender, ageMin, ageMax]);
 
-  // Filtreler değişince sayfayı 1'e sıfırla
+  // Reset page to 1 whenever filters change
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, specialization, title, gender, ageMin, ageMax]);
@@ -121,7 +121,7 @@ export default function BrowseDoctorsPage() {
     };
   }, []);
 
-  // Sayfa veya filtreler değişince datayı çek
+  // Fetch data when page or filters change
   useEffect(() => {
     fetchDoctors();
   }, [fetchDoctors]);

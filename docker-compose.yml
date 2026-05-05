@@ -42,6 +42,7 @@ services:
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-${JWT_SECRET}}
       REFRESH_TOKEN_EXPIRES_IN: ${JWT_REFRESH_TTL:-7d}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001}
+      CLINIC_TIMEZONE: ${CLINIC_TIMEZONE:-Europe/Istanbul}
     ports:
       - "${BACKEND_HOST_PORT:-3000}:3000"
     healthcheck:

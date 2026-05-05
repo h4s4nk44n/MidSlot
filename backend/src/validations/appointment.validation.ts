@@ -5,6 +5,25 @@ export const bookAppointmentSchema = z.object({
   timeSlotId: z.string().uuid({ message: "timeSlotId must be a valid UUID" }),
 });
 
+/**
+ * CRIT-005: explicit schema for POST /appointments. Without this, the
+ * controller used to destructure raw body fields, allowing unbounded `notes`
+ * and a free-form `patientId` that only one branch sanitized.
+ */
+export const createAppointmentSchema = z.object({
+  timeSlotId: z.string().uuid({ message: "timeSlotId must be a valid UUID" }),
+  patientId: z
+    .string()
+    .uuid({ message: "patientId must be a valid UUID" })
+    .optional(),
+  notes: z
+    .string()
+    .max(2000, { message: "notes must be 2000 characters or fewer" })
+    .optional(),
+});
+
+export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
+
 export const updateStatusSchema = z.object({
   status: z.enum(["CANCELLED", "COMPLETED"], {
     message: "Status must be CANCELLED or COMPLETED",

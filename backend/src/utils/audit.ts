@@ -5,7 +5,10 @@ import logger from "../lib/logger";
 
 // Keys whose values must be redacted before persisting metadata.
 // Match is case-insensitive and applies recursively to nested objects.
+// HIGH-009: extended with PHI/PII keys so profile-edit audit entries don't
+// store medical and identity data in plain JSON.
 const SENSITIVE_KEYS = [
+  // Credentials
   "password",
   "passwordhash",
   "hashedpassword",
@@ -18,6 +21,33 @@ const SENSITIVE_KEYS = [
   "secret",
   "apikey",
   "authorization",
+  // Identity / contact
+  "phone",
+  "phonenumber",
+  "nationalid",
+  "ssn",
+  "dateofbirth",
+  "dob",
+  "address",
+  "addressline",
+  "addressline1",
+  "addressline2",
+  // Medical PHI
+  "allergies",
+  "chronicconditions",
+  "currentmedications",
+  "bloodtype",
+  "medicalhistory",
+  // Notes (may contain PHI)
+  "note",
+  "notes",
+  "doctornote",
+  // Insurance
+  "insuranceprovider",
+  "insurancepolicynumber",
+  // Emergency contact (PII)
+  "emergencycontactname",
+  "emergencycontactphone",
 ];
 
 const REDACTED = "[REDACTED]";

@@ -73,7 +73,7 @@ check "Valid PATIENT registration → should return id" '"id"' "$RES"
 RES=$(curl -s -X POST $BASE_URL/auth/register \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"$DOCTOR_EMAIL\",\"name\":\"Dr. Test\",\"password\":\"123456\",\"role\":\"DOCTOR\"}")
-check "Duplicate email → 409 mesajı" 'already registered' "$RES"
+check "Duplicate email → 409 message" 'already registered' "$RES"
 
 # Invalid email
 RES=$(curl -s -X POST $BASE_URL/auth/register \
@@ -110,7 +110,7 @@ RES=$(curl -s -X POST $BASE_URL/auth/login \
   -d "{\"email\":\"$DOCTOR_EMAIL\",\"password\":\"123456\"}")
 check "Valid doctor login → should return token" '"token"' "$RES"
 check "Valid doctor login → should return user" '"user"' "$RES"
-check_absent "Login response'da password olmamalı" '"password"' "$RES"
+check_absent "Login response must not contain password" '"password"' "$RES"
 DOCTOR_TOKEN=$(echo $RES | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 
 # Valid patient login
