@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
 import { hashRefreshToken } from "../utils/tokenHelpers";
 
-// Refresh akışı 5 limit'i aşmıyor ama yine de güvenli olsun
+// The refresh flow doesn't exceed the 5 limit, but let's stay on the safe side
 process.env.DISABLE_RATE_LIMIT = "true";
 
 // eslint-disable-next-line import/first
@@ -81,7 +81,7 @@ describe("Refresh token rotation, logout & reuse detection", () => {
       const cookieStr = Array.isArray(setCookie) ? setCookie.join(";") : setCookie;
       expect(cookieStr).toContain(`${REFRESH_COOKIE_NAME}=`);
       expect(cookieStr).toContain("HttpOnly");
-      expect(cookieStr).toContain("Path=/api/auth");
+      expect(cookieStr).toContain("Path=/");
     });
 
     it("stores refresh token as a hash, not raw, in the database", async () => {

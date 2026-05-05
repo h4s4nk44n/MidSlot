@@ -124,14 +124,39 @@ export const createAppointment = async (
     const userId = (req as AuthRequest).user!.userId;
     const userRole = (req as AuthRequest).user!.role;
 
-    // patientId'yi body'den alıyoruz ama kimin yolladığına göre şekillenecek
-    let { timeSlotId, notes, patientId } = req.body;
+    // CRIT-005: only PATIENT and RECEPTIONIST may book. Doctors and admins
+    // must not be able to create appointments through this endpoint, and the
+    // request body has already been validated by `createAppointmentSchema`.
+    if (userRole !== "PATIENT" && userRole !== "RECEPTIONIST") {
+      throw new ForbiddenError("Only patients or receptionists may book appointments.");
+    }
 
-    // Kural 1: Resepsiyonist hasta ID'si yollamak ZORUNDA
+    const { timeSlotId, notes } = req.body as {
+      timeSlotId: string;
+      notes?: string;
+      patientId?: string;
+    };
+    let patientId: string;
+
     if (userRole === "RECEPTIONIST") {
-      if (!patientId) throw new BadRequestError("patientId is required when booking as a receptionist.");
+      const bodyPatientId = (req.body as { patientId?: string }).patientId;
+      if (!bodyPatientId) {
+        throw new BadRequestError("patientId is required when booking as a receptionist.");
+      }
+      // HIGH-006: verify the patient exists AND has role PATIENT before
+      // letting the receptionist target them. Foreign-key alone leaks staff
+      // user IDs and produces noisy 500s.
+      const targetPatient = await prisma.user.findUnique({
+        where: { id: bodyPatientId },
+        select: { id: true, role: true },
+      });
+      if (!targetPatient || targetPatient.role !== "PATIENT") {
+        throw new BadRequestError("Target user is not a patient.");
+      }
+      patientId = bodyPatientId;
     } else {
-      // Kural 2: Hasta kendi alıyorsa, body'deki patientId'yi yok say ve kendi userId'sini bas (Sahtekarlık koruması)
+      // Patient self-booking: ignore any body patientId (anti-fraud) and use
+      // the authenticated user's id.
       patientId = userId;
     }
 
@@ -142,7 +167,6 @@ export const createAppointment = async (
     if (!slot) throw new NotFoundError("Time slot not found.");
     if (new Date(slot.startTime) <= new Date()) throw new BadRequestError("Cannot book past slots.");
 
-    // Kural 3: Resepsiyonist bu doktorun randevusunu almaya YETKİLİ Mİ?
     if (userRole === "RECEPTIONIST") {
       const assignment = await prisma.receptionistAssignment.findUnique({
         where: { receptionistId_doctorId: { receptionistId: userId, doctorId: slot.doctorId } }
@@ -210,7 +234,7 @@ export const cancelAppointment = async (
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
-      include: { doctor: true },
+      include: { doctor: true, timeSlot: true },
     });
 
     if (!appointment) throw new NotFoundError("Appointment not found.");

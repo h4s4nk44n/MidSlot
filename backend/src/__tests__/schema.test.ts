@@ -502,7 +502,7 @@ describe("RefreshToken model", () => {
 
     const familyId = "family-rotate";
 
-    // İlk token
+    // First token
     const token1 = await prisma.refreshToken.create({
       data: {
         userId: user.id,
@@ -512,7 +512,7 @@ describe("RefreshToken model", () => {
       },
     });
 
-    // Rotate: yeni token oluştur, eskisini revoke + replacedBy işaretle
+    // Rotate: create a new token, revoke the old one + mark replacedBy
     const token2 = await prisma.refreshToken.create({
       data: {
         userId: user.id,

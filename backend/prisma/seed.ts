@@ -23,6 +23,17 @@ function atTime(base: Date, hour: number, minute: number): Date {
 async function main(): Promise<void> {
   console.log("Starting database seed...\n");
 
+  // HIGH-014: refuse to seed in production unless explicitly opted in. The
+  // container CMD runs `node dist/seed.js` on every boot, which would create
+  // deterministic admin/staff accounts in any production DB that happened to
+  // be empty (data migration, fresh tenant, point-in-time recovery, …).
+  if (process.env.NODE_ENV === "production" && process.env.SEED_PRODUCTION !== "true") {
+    console.log(
+      "Seed skipped — NODE_ENV=production and SEED_PRODUCTION is not 'true'.",
+    );
+    return;
+  }
+
   // Idempotency guard: skip when the DB already has users so container
   // restarts (CMD runs seed every boot) don't wipe live data.
   if ((await prisma.user.count()) > 0) {
@@ -30,8 +41,27 @@ async function main(): Promise<void> {
     return;
   }
 
-  const hashedPassword = await bcrypt.hash("Password123!", 10);
-  const hashedAdminPassword = await bcrypt.hash("Admin@MediSlot2026!", 10);
+  // HIGH-014: passwords come from environment, not hardcoded literals. Refuse
+  // to seed if the env values aren't provided AND we're not in a dev-style
+  // environment (test / dev). This makes accidental production seeds with
+  // known passwords impossible.
+  const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const seedUserPassword = process.env.SEED_USER_PASSWORD;
+  if (!seedAdminPassword || !seedUserPassword) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "SEED_ADMIN_PASSWORD and SEED_USER_PASSWORD must be set when seeding in production.",
+      );
+    }
+    console.log(
+      "[seed] SEED_ADMIN_PASSWORD / SEED_USER_PASSWORD not set — using non-prod dev defaults.",
+    );
+  }
+  const adminPlaintext = seedAdminPassword ?? "Admin@MediSlot2026!";
+  const userPlaintext = seedUserPassword ?? "Password123!";
+
+  const hashedPassword = await bcrypt.hash(userPlaintext, 12);
+  const hashedAdminPassword = await bcrypt.hash(adminPlaintext, 12);
 
   await prisma.$transaction(async (tx) => {
     // ── 1. Cleanup (reverse dependency order) ──────────────────────────────
@@ -86,8 +116,8 @@ async function main(): Promise<void> {
         dateOfBirth: new Date("1978-02-14"),
         gender: Gender.OTHER,
         address: "MediSlot HQ, Levent Cad. No:1",
-        city: "İstanbul",
-        country: "Türkiye",
+        city: "Istanbul",
+        country: "Turkey",
         emergencyContactName: "Operations Desk",
         emergencyContactPhone: "+90 212 555 0199",
         emergencyContactRelation: "Colleague",
@@ -103,15 +133,15 @@ async function main(): Promise<void> {
       data: {
         email: "fatma.celik@medislot.com",
         password: hashedPassword,
-        name: "Fatma Çelik",
+        name: "Fatma Celik",
         role: Role.RECEPTIONIST,
         phone: "+90 532 444 1010",
         dateOfBirth: new Date("1992-07-22"),
         gender: Gender.FEMALE,
-        address: "Bağdat Cad. No:80, Daire 12",
-        city: "İstanbul",
-        country: "Türkiye",
-        emergencyContactName: "Hakan Çelik",
+        address: "Bagdat Cad. No:80, Daire 12",
+        city: "Istanbul",
+        country: "Turkey",
+        emergencyContactName: "Hakan Celik",
         emergencyContactPhone: "+90 532 444 1011",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.A_POSITIVE,
@@ -123,15 +153,15 @@ async function main(): Promise<void> {
       data: {
         email: "emre.sahin@medislot.com",
         password: hashedPassword,
-        name: "Emre Şahin",
+        name: "Emre Sahin",
         role: Role.RECEPTIONIST,
         phone: "+90 533 555 2020",
         dateOfBirth: new Date("1988-12-03"),
         gender: Gender.MALE,
-        address: "Tunalı Hilmi Cad. No:55",
+        address: "Tunali Hilmi Cad. No:55",
         city: "Ankara",
-        country: "Türkiye",
-        emergencyContactName: "Selin Şahin",
+        country: "Turkey",
+        emergencyContactName: "Selin Sahin",
         emergencyContactPhone: "+90 533 555 2021",
         emergencyContactRelation: "Sister",
         bloodType: BloodType.B_POSITIVE,
@@ -143,15 +173,15 @@ async function main(): Promise<void> {
       data: {
         email: "burcu.ozturk@medislot.com",
         password: hashedPassword,
-        name: "Burcu Öztürk",
+        name: "Burcu Ozturk",
         role: Role.RECEPTIONIST,
         phone: "+90 534 666 3030",
         dateOfBirth: new Date("1995-03-15"),
         gender: Gender.FEMALE,
         address: "Kordon Boyu Cad. No:18, Daire 7",
-        city: "İzmir",
-        country: "Türkiye",
-        emergencyContactName: "Mert Öztürk",
+        city: "Izmir",
+        country: "Turkey",
+        emergencyContactName: "Mert Ozturk",
         emergencyContactPhone: "+90 534 666 3031",
         emergencyContactRelation: "Brother",
         bloodType: BloodType.O_POSITIVE,
@@ -166,15 +196,15 @@ async function main(): Promise<void> {
       data: {
         email: "ayse.yilmaz@medislot.com",
         password: hashedPassword,
-        name: "Ayşe Yılmaz",
+        name: "Ayse Yilmaz",
         role: Role.DOCTOR,
         phone: "+90 532 700 1001",
         dateOfBirth: new Date("1972-04-18"),
         gender: Gender.FEMALE,
         address: "Nispetiye Cad. No:23, Daire 4",
-        city: "İstanbul",
-        country: "Türkiye",
-        emergencyContactName: "Kerem Yılmaz",
+        city: "Istanbul",
+        country: "Turkey",
+        emergencyContactName: "Kerem Yilmaz",
         emergencyContactPhone: "+90 532 700 1002",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.A_NEGATIVE,
@@ -191,9 +221,9 @@ async function main(): Promise<void> {
         phone: "+90 533 800 2002",
         dateOfBirth: new Date("1980-09-02"),
         gender: Gender.MALE,
-        address: "Çankaya Mah. 12. Sok. No:9",
+        address: "Cankaya Mah. 12. Sok. No:9",
         city: "Ankara",
-        country: "Türkiye",
+        country: "Turkey",
         emergencyContactName: "Elif Kaya",
         emergencyContactPhone: "+90 533 800 2003",
         emergencyContactRelation: "Spouse",
@@ -211,9 +241,9 @@ async function main(): Promise<void> {
         phone: "+90 535 900 3003",
         dateOfBirth: new Date("1988-01-25"),
         gender: Gender.FEMALE,
-        address: "Alsancak Mah. Kıbrıs Şehitleri Cad. No:42",
-        city: "İzmir",
-        country: "Türkiye",
+        address: "Alsancak Mah. Kibris Sehitleri Cad. No:42",
+        city: "Izmir",
+        country: "Turkey",
         emergencyContactName: "Murat Demir",
         emergencyContactPhone: "+90 535 900 3004",
         emergencyContactRelation: "Brother",
@@ -283,7 +313,7 @@ async function main(): Promise<void> {
         dateOfBirth: "1975-06-09",
         gender: Gender.MALE,
         address: "Etiler Mah. Nispetiye Cad. No:48",
-        city: "İstanbul",
+        city: "Istanbul",
         emergencyContactName: "Lale Korkmaz",
         emergencyContactPhone: "+90 532 700 1011",
         emergencyContactRelation: "Spouse",
@@ -295,13 +325,13 @@ async function main(): Promise<void> {
       },
       {
         email: "pinar.aydin@medislot.com",
-        name: "Pınar Aydın",
+        name: "Pinar Aydin",
         phone: "+90 533 700 1020",
         dateOfBirth: "1982-11-14",
         gender: Gender.FEMALE,
-        address: "Bağdat Cad. No:212, Daire 9",
-        city: "İstanbul",
-        emergencyContactName: "Cemil Aydın",
+        address: "Bagdat Cad. No:212, Daire 9",
+        city: "Istanbul",
+        emergencyContactName: "Cemil Aydin",
         emergencyContactPhone: "+90 533 700 1021",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.A_POSITIVE,
@@ -312,13 +342,13 @@ async function main(): Promise<void> {
       },
       {
         email: "murat.dogan@medislot.com",
-        name: "Murat Doğan",
+        name: "Murat Dogan",
         phone: "+90 535 700 1030",
         dateOfBirth: "1978-02-20",
         gender: Gender.MALE,
-        address: "Kavaklıdere Mah. Tunalı Hilmi Cad. No:88",
+        address: "Kavaklidere Mah. Tunali Hilmi Cad. No:88",
         city: "Ankara",
-        emergencyContactName: "Aslı Doğan",
+        emergencyContactName: "Asli Dogan",
         emergencyContactPhone: "+90 535 700 1031",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.B_NEGATIVE,
@@ -329,13 +359,13 @@ async function main(): Promise<void> {
       },
       {
         email: "elif.senturk@medislot.com",
-        name: "Elif Şentürk",
+        name: "Elif Senturk",
         phone: "+90 532 700 1040",
         dateOfBirth: "1984-07-03",
         gender: Gender.FEMALE,
         address: "Alsancak Mah. 1453 Sok. No:21",
-        city: "İzmir",
-        emergencyContactName: "Kerem Şentürk",
+        city: "Izmir",
+        emergencyContactName: "Kerem Senturk",
         emergencyContactPhone: "+90 532 700 1041",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.AB_POSITIVE,
@@ -346,13 +376,13 @@ async function main(): Promise<void> {
       },
       {
         email: "burak.kilic@medislot.com",
-        name: "Burak Kılıç",
+        name: "Burak Kilic",
         phone: "+90 533 700 1050",
         dateOfBirth: "1979-09-28",
         gender: Gender.MALE,
-        address: "Konyaaltı Cad. No:71",
+        address: "Konyaalti Cad. No:71",
         city: "Antalya",
-        emergencyContactName: "Sibel Kılıç",
+        emergencyContactName: "Sibel Kilic",
         emergencyContactPhone: "+90 533 700 1051",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.O_NEGATIVE,
@@ -367,9 +397,9 @@ async function main(): Promise<void> {
         phone: "+90 535 700 1060",
         dateOfBirth: "1981-05-12",
         gender: Gender.FEMALE,
-        address: "Çankaya Mah. Atatürk Bulvarı No:155",
+        address: "Cankaya Mah. Ataturk Bulvari No:155",
         city: "Ankara",
-        emergencyContactName: "Tarık Aksoy",
+        emergencyContactName: "Tarik Aksoy",
         emergencyContactPhone: "+90 535 700 1061",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.A_NEGATIVE,
@@ -384,8 +414,8 @@ async function main(): Promise<void> {
         phone: "+90 532 700 1070",
         dateOfBirth: "1973-12-01",
         gender: Gender.MALE,
-        address: "Levent Mah. Büyükdere Cad. No:201",
-        city: "İstanbul",
+        address: "Levent Mah. Buyukdere Cad. No:201",
+        city: "Istanbul",
         emergencyContactName: "Burcu Tekin",
         emergencyContactPhone: "+90 532 700 1071",
         emergencyContactRelation: "Spouse",
@@ -401,8 +431,8 @@ async function main(): Promise<void> {
         phone: "+90 533 700 1080",
         dateOfBirth: "1986-04-17",
         gender: Gender.FEMALE,
-        address: "Karşıyaka Mah. Cemal Gürsel Cad. No:33",
-        city: "İzmir",
+        address: "Karsiyaka Mah. Cemal Gursel Cad. No:33",
+        city: "Izmir",
         emergencyContactName: "Eda Polat",
         emergencyContactPhone: "+90 533 700 1081",
         emergencyContactRelation: "Sister",
@@ -418,7 +448,7 @@ async function main(): Promise<void> {
         phone: "+90 535 700 1090",
         dateOfBirth: "1977-08-22",
         gender: Gender.MALE,
-        address: "Bahçelievler Mah. 7. Cad. No:44",
+        address: "Bahcelievler Mah. 7. Cad. No:44",
         city: "Ankara",
         emergencyContactName: "Pelin Erdem",
         emergencyContactPhone: "+90 535 700 1091",
@@ -431,13 +461,13 @@ async function main(): Promise<void> {
       },
       {
         email: "gizem.cetin@medislot.com",
-        name: "Gizem Çetin",
+        name: "Gizem Cetin",
         phone: "+90 532 700 1100",
         dateOfBirth: "1989-10-05",
         gender: Gender.FEMALE,
         address: "Moda Cad. No:58, Daire 3",
-        city: "İstanbul",
-        emergencyContactName: "Hülya Çetin",
+        city: "Istanbul",
+        emergencyContactName: "Hulya Cetin",
         emergencyContactPhone: "+90 532 700 1101",
         emergencyContactRelation: "Mother",
         bloodType: BloodType.AB_NEGATIVE,
@@ -452,8 +482,8 @@ async function main(): Promise<void> {
         phone: "+90 533 700 1110",
         dateOfBirth: "1976-01-30",
         gender: Gender.MALE,
-        address: "Konak Mah. Mithatpaşa Cad. No:117",
-        city: "İzmir",
+        address: "Konak Mah. Mithatpasa Cad. No:117",
+        city: "Izmir",
         emergencyContactName: "Nihan Bozkurt",
         emergencyContactPhone: "+90 533 700 1111",
         emergencyContactRelation: "Spouse",
@@ -465,13 +495,13 @@ async function main(): Promise<void> {
       },
       {
         email: "ece.yildiz@medislot.com",
-        name: "Ece Yıldız",
+        name: "Ece Yildiz",
         phone: "+90 535 700 1120",
         dateOfBirth: "1983-06-26",
         gender: Gender.FEMALE,
-        address: "Yenimahalle Mah. Ragıp Tüzün Cad. No:90",
+        address: "Yenimahalle Mah. Ragip Tuzun Cad. No:90",
         city: "Ankara",
-        emergencyContactName: "Serkan Yıldız",
+        emergencyContactName: "Serkan Yildiz",
         emergencyContactPhone: "+90 535 700 1121",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.B_POSITIVE,
@@ -482,12 +512,12 @@ async function main(): Promise<void> {
       },
       {
         email: "baris.acar@medislot.com",
-        name: "Barış Acar",
+        name: "Baris Acar",
         phone: "+90 532 700 1130",
         dateOfBirth: "1980-03-11",
         gender: Gender.MALE,
-        address: "Şişli Mah. Halaskargazi Cad. No:225",
-        city: "İstanbul",
+        address: "Sisli Mah. Halaskargazi Cad. No:225",
+        city: "Istanbul",
         emergencyContactName: "Defne Acar",
         emergencyContactPhone: "+90 532 700 1131",
         emergencyContactRelation: "Spouse",
@@ -499,12 +529,12 @@ async function main(): Promise<void> {
       },
       {
         email: "nazli.karaca@medislot.com",
-        name: "Nazlı Karaca",
+        name: "Nazli Karaca",
         phone: "+90 533 700 1140",
         dateOfBirth: "1985-09-19",
         gender: Gender.FEMALE,
         address: "Bornova Mah. Ergene Cad. No:14",
-        city: "İzmir",
+        city: "Izmir",
         emergencyContactName: "Mert Karaca",
         emergencyContactPhone: "+90 533 700 1141",
         emergencyContactRelation: "Brother",
@@ -516,13 +546,13 @@ async function main(): Promise<void> {
       },
       {
         email: "ozan.simsek@medislot.com",
-        name: "Ozan Şimşek",
+        name: "Ozan Simsek",
         phone: "+90 535 700 1150",
         dateOfBirth: "1974-11-07",
         gender: Gender.MALE,
-        address: "Ataşehir Mah. Barbaros Mah. No:67",
-        city: "İstanbul",
-        emergencyContactName: "Tuba Şimşek",
+        address: "Atasehir Mah. Barbaros Mah. No:67",
+        city: "Istanbul",
+        emergencyContactName: "Tuba Simsek",
         emergencyContactPhone: "+90 535 700 1151",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.A_NEGATIVE,
@@ -546,7 +576,7 @@ async function main(): Promise<void> {
           gender: d.gender,
           address: d.address,
           city: d.city,
-          country: "Türkiye",
+          country: "Turkey",
           emergencyContactName: d.emergencyContactName,
           emergencyContactPhone: d.emergencyContactPhone,
           emergencyContactRelation: d.emergencyContactRelation,
@@ -578,9 +608,9 @@ async function main(): Promise<void> {
         phone: "+90 532 111 2233",
         dateOfBirth: new Date("1990-06-12"),
         gender: Gender.MALE,
-        address: "Bağdat Cad. No:120, Daire 5",
-        city: "İstanbul",
-        country: "Türkiye",
+        address: "Bagdat Cad. No:120, Daire 5",
+        city: "Istanbul",
+        country: "Turkey",
         emergencyContactName: "Ayla Vural",
         emergencyContactPhone: "+90 532 998 7766",
         emergencyContactRelation: "Spouse",
@@ -598,15 +628,15 @@ async function main(): Promise<void> {
       data: {
         email: "can.ozkan@example.com",
         password: hashedPassword,
-        name: "Can Özkan",
+        name: "Can Ozkan",
         role: Role.PATIENT,
         phone: "+90 533 444 5566",
         dateOfBirth: new Date("1985-11-30"),
         gender: Gender.MALE,
-        address: "Atatürk Bulvarı No:45",
+        address: "Ataturk Bulvari No:45",
         city: "Ankara",
-        country: "Türkiye",
-        emergencyContactName: "Mehmet Özkan",
+        country: "Turkey",
+        emergencyContactName: "Mehmet Ozkan",
         emergencyContactPhone: "+90 533 700 8800",
         emergencyContactRelation: "Brother",
         bloodType: BloodType.O_NEGATIVE,
@@ -629,8 +659,8 @@ async function main(): Promise<void> {
         dateOfBirth: new Date("1998-03-08"),
         gender: Gender.FEMALE,
         address: "Cumhuriyet Mah. 1453 Sok. No:8",
-        city: "İzmir",
-        country: "Türkiye",
+        city: "Izmir",
+        country: "Turkey",
         emergencyContactName: "Selin Arslan",
         emergencyContactPhone: "+90 535 600 1122",
         emergencyContactRelation: "Mother",
@@ -666,13 +696,13 @@ async function main(): Promise<void> {
     }> = [
       {
         email: "berna.aktas@example.com",
-        name: "Berna Aktaş",
+        name: "Berna Aktas",
         phone: "+90 532 333 4455",
         dateOfBirth: "1991-04-21",
         gender: Gender.FEMALE,
         address: "Caddebostan Mah. Plaj Yolu Sok. No:14",
-        city: "İstanbul",
-        emergencyContactName: "Hakan Aktaş",
+        city: "Istanbul",
+        emergencyContactName: "Hakan Aktas",
         emergencyContactPhone: "+90 532 333 4456",
         emergencyContactRelation: "Spouse",
         bloodType: BloodType.A_NEGATIVE,
@@ -685,13 +715,13 @@ async function main(): Promise<void> {
       },
       {
         email: "tugce.kose@example.com",
-        name: "Tuğçe Köse",
+        name: "Tugce Kose",
         phone: "+90 533 555 6677",
         dateOfBirth: "1996-09-14",
         gender: Gender.FEMALE,
-        address: "Kızılay Mah. Necatibey Cad. No:62",
+        address: "Kizilay Mah. Necatibey Cad. No:62",
         city: "Ankara",
-        emergencyContactName: "Asuman Köse",
+        emergencyContactName: "Asuman Kose",
         emergencyContactPhone: "+90 533 555 6678",
         emergencyContactRelation: "Mother",
         bloodType: BloodType.O_POSITIVE,
@@ -709,7 +739,7 @@ async function main(): Promise<void> {
         dateOfBirth: "1978-12-05",
         gender: Gender.MALE,
         address: "Bornova Mah. 174 Sok. No:9",
-        city: "İzmir",
+        city: "Izmir",
         emergencyContactName: "Yasemin Aslan",
         emergencyContactPhone: "+90 535 777 8900",
         emergencyContactRelation: "Spouse",
@@ -723,13 +753,13 @@ async function main(): Promise<void> {
       },
       {
         email: "yusuf.gunes@example.com",
-        name: "Yusuf Güneş",
+        name: "Yusuf Gunes",
         phone: "+90 532 999 1122",
         dateOfBirth: "2001-05-18",
         gender: Gender.MALE,
-        address: "Konyaaltı Mah. Atatürk Bulvarı No:22",
+        address: "Konyaalti Mah. Ataturk Bulvari No:22",
         city: "Antalya",
-        emergencyContactName: "Mustafa Güneş",
+        emergencyContactName: "Mustafa Gunes",
         emergencyContactPhone: "+90 532 999 1123",
         emergencyContactRelation: "Father",
         bloodType: BloodType.AB_POSITIVE,
@@ -742,12 +772,12 @@ async function main(): Promise<void> {
       },
       {
         email: "irem.tan@example.com",
-        name: "İrem Tan",
+        name: "Irem Tan",
         phone: "+90 533 444 7788",
         dateOfBirth: "1987-08-02",
         gender: Gender.FEMALE,
-        address: "Ataşehir Mah. Bulvar Cad. No:101, Daire 11",
-        city: "İstanbul",
+        address: "Atasehir Mah. Bulvar Cad. No:101, Daire 11",
+        city: "Istanbul",
         emergencyContactName: "Eren Tan",
         emergencyContactPhone: "+90 533 444 7789",
         emergencyContactRelation: "Spouse",
@@ -773,7 +803,7 @@ async function main(): Promise<void> {
           gender: p.gender,
           address: p.address,
           city: p.city,
-          country: "Türkiye",
+          country: "Turkey",
           emergencyContactName: p.emergencyContactName,
           emergencyContactPhone: p.emergencyContactPhone,
           emergencyContactRelation: p.emergencyContactRelation,
@@ -791,7 +821,7 @@ async function main(): Promise<void> {
     // ── 6. Create receptionist assignments ────────────────────────────────
     console.log("Creating receptionist assignments...");
 
-    // Fatma is assigned to Dr. Ayşe (Cardiology) and Dr. Mehmet (Dermatology)
+    // Fatma is assigned to Dr. Ayse (Cardiology) and Dr. Mehmet (Dermatology)
     await tx.receptionistAssignment.create({
       data: {
         receptionistId: receptionist1.id,
@@ -827,7 +857,7 @@ async function main(): Promise<void> {
     const futureDay2 = daysFromNow(7);  // 1 week from now
     const futureDay3 = daysFromNow(10); // 10 days from now
 
-    // ── Doctor 1 (Ayşe – Cardiology) slots ─────────────────────────────────
+    // ── Doctor 1 (Ayse – Cardiology) slots ─────────────────────────────────
     // Past slot (completed appointment)
     const slot1 = await tx.timeSlot.create({
       data: {
@@ -998,7 +1028,7 @@ async function main(): Promise<void> {
     // ── 8. Create appointments ─────────────────────────────────────────────
     console.log("Creating appointments...");
 
-    // Appointment 1: COMPLETED – Ali saw Dr. Ayşe (past)
+    // Appointment 1: COMPLETED – Ali saw Dr. Ayse (past)
     await tx.appointment.create({
       data: {
         patientId: patient1.id,
@@ -1014,7 +1044,7 @@ async function main(): Promise<void> {
       },
     });
 
-    // Appointment 2: CANCELLED – Can cancelled with Dr. Ayşe (past)
+    // Appointment 2: CANCELLED – Can cancelled with Dr. Ayse (past)
     await tx.appointment.create({
       data: {
         patientId: patient2.id,
@@ -1025,7 +1055,7 @@ async function main(): Promise<void> {
       },
     });
 
-    // Appointment 3: BOOKED – Deniz booked with Dr. Ayşe (today)
+    // Appointment 3: BOOKED – Deniz booked with Dr. Ayse (today)
     await tx.appointment.create({
       data: {
         patientId: patient3.id,
@@ -1065,13 +1095,16 @@ async function main(): Promise<void> {
     // ── 9. Summary ─────────────────────────────────────────────────────────
     console.log("\nSeed completed successfully!");
     console.log("   - Created 1 admin, 3 receptionists, 18 doctors, 8 patients, 15 slots, 5 appointments, 3 assignments");
+    // HIGH-014: never print plaintext passwords — they leak into log files,
+    // CI artifacts, and container output. Operators receive credentials via
+    // SEED_*_PASSWORD env values which they themselves provided.
     console.log("\n   Admin:");
-    console.log("   • admin@medislot.com          (Password: Admin@MediSlot2026!)");
-    console.log("\n   Receptionists (Password: Password123!):");
-    console.log("   • fatma.celik@medislot.com    → Dr. Ayşe (Cardiology), Dr. Mehmet (Dermatology)");
+    console.log("   • admin@medislot.com");
+    console.log("\n   Receptionists:");
+    console.log("   • fatma.celik@medislot.com    → Dr. Ayse (Cardiology), Dr. Mehmet (Dermatology)");
     console.log("   • emre.sahin@medislot.com     → Dr. Zeynep (General Practice)");
     console.log("   • burcu.ozturk@medislot.com   (unassigned)");
-    console.log("\n   Doctors (Password: Password123!):");
+    console.log("\n   Doctors:");
     console.log("   • ayse.yilmaz@medislot.com    (Cardiology)");
     console.log("   • mehmet.kaya@medislot.com    (Dermatology)");
     console.log("   • zeynep.demir@medislot.com   (Family Medicine)");
@@ -1090,7 +1123,7 @@ async function main(): Promise<void> {
     console.log("   • baris.acar@medislot.com     (Radiology)");
     console.log("   • nazli.karaca@medislot.com   (Urology)");
     console.log("   • ozan.simsek@medislot.com    (General Surgery)");
-    console.log("\n   Patients (Password: Password123!):");
+    console.log("\n   Patients:");
     console.log("   • ali.vural@example.com");
     console.log("   • can.ozkan@example.com");
     console.log("   • deniz.arslan@example.com");
