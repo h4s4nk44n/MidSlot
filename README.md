@@ -377,13 +377,13 @@ sequenceDiagram
         P2->>API: POST /appointments {timeSlotId}
     end
 
-    API->>DB: updateMany TimeSlot SET isBooked=true<br/>WHERE id=? AND isBooked=false
-    Note over DB: Only one row updated (count=1);<br/>the other gets count=0
-    API->>DB: insert Appointment (timeSlotId UNIQUE)
+    API->>DB: updateMany TimeSlot set isBooked true where isBooked false
+    Note over DB: Only one updateMany affects a row.<br/>The other returns count 0.
+    API->>DB: insert Appointment with unique timeSlotId
 
     alt Winner
-        DB-->>API: 1 row updated + insert OK
-        API->>DB: AuditLog: appointment.book
+        DB-->>API: 1 row updated, insert OK
+        API->>DB: AuditLog appointment.book
         API-->>P1: 201 Created
     else Loser
         DB-->>API: 0 rows updated OR P2002 unique violation
