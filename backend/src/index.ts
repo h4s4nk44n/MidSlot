@@ -25,32 +25,64 @@ assertRequiredEnv();
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
+// HIGH-012: behind a TLS-terminating proxy (Docker / nginx / CDN), express
+// must trust the X-Forwarded-* headers so req.ip, rate-limit keys, and audit
+// IPs reflect the real client. Restrict to a single hop by default; override
+// with TRUST_PROXY for more elaborate setups.
+const trustProxy = process.env.TRUST_PROXY ?? "1";
+app.set("trust proxy", /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
+
 // Request logger — mount before routes so every request is logged
 app.use(requestLogger);
 
-// Security headers — mount as early as possible
-app.use(helmet());
+// HIGH-012: helmet defaults + explicit HSTS (1y, includeSubDomains, preload)
+// for production. CSP intentionally enabled with helmet's safe defaults; the
+// frontend lives on a separate origin so 'self' here only protects API
+// responses themselves (mostly JSON, no inline scripts).
+app.use(
+  helmet({
+    hsts:
+      process.env.NODE_ENV === "production"
+        ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
+        : false,
+  }),
+);
 
 // CORS Configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
   : ["http://localhost:3000", "http://localhost:3001"];
 
-app.use(
+// CRIT-006 / HIGH-011: only allow no-Origin requests for safe, idempotent
+// methods (browser preflight uses OPTIONS; health checks use GET). Refuse
+// state-changing verbs without an Origin so curl/server-to-server clients
+// can't ride the cookie jar with credentials. On disallowed origins, pass
+// `false` (no echo) instead of an Error so the disallowed origin is not
+// reflected back in the error message.
+const SAFE_NO_ORIGIN_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. curl, mobile apps, same-origin)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
+    origin: (incomingOrigin, callback) => {
+      if (!incomingOrigin) {
+        if (SAFE_NO_ORIGIN_METHODS.has(req.method)) {
+          return callback(null, true);
+        }
+        return callback(null, false);
+      }
+      if (allowedOrigins.includes(incomingOrigin)) {
         return callback(null, true);
       }
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+      return callback(null, false);
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
+  })(req, res, () => {
+    void origin;
+    next();
+  });
+});
 
 // Body parsers with size limits — prevent payload-based DoS
 app.use(express.json({ limit: "10kb" }));

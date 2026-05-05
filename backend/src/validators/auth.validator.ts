@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 const PHONE_REGEX = /^\+?[0-9 ()-]{6,20}$/;
 const REGISTER_GENDERS = ["MALE", "FEMALE", "OTHER", "UNDISCLOSED"] as const;
 
-// Common passwords — küçük harfe çevrilmiş, case-insensitive kontrol için
+// Common passwords — lowercased, for case-insensitive checking
 const COMMON_PASSWORDS = [
   "password",
   "password1",
@@ -53,14 +53,14 @@ export const registerSchema = z
     ({ password, name, email }) => {
       const pwLower = password.toLowerCase();
 
-      // İsim kontrolü: ad/soyadın her parçası 3+ karakter ise şifrede geçmesin
+      // Name check: if any first/last name part is 3+ characters, it must not appear in the password
       const nameParts = name
         .toLowerCase()
         .split(/\s+/)
         .filter((part) => part.length >= 3);
       if (nameParts.some((part) => pwLower.includes(part))) return false;
 
-      // Email local-part kontrolü: 3+ karakterse şifrede geçmesin
+      // Email local-part check: if it's 3+ characters, it must not appear in the password
       const localPart = email.toLowerCase().split("@")[0];
       if (localPart.length >= 3 && pwLower.includes(localPart)) return false;
 

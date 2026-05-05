@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError, AccountLockedError } from "../utils/errors";
+import { AppError, AccountLockedError, TooManyRequestsError } from "../utils/errors";
 import logger from "../lib/logger";
 
 const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction): void => {
@@ -21,6 +21,27 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
     res.status(err.statusCode).json({
       error: err.message,
       statusCode: err.statusCode,
+    });
+    return;
+  }
+
+  // CRIT-008: Rate limit responses include Retry-After when known
+  if (err instanceof TooManyRequestsError) {
+    if (err.retryAfterSeconds !== undefined) {
+      res.setHeader("Retry-After", String(err.retryAfterSeconds));
+    }
+    res.status(err.statusCode).json({
+      error: err.message,
+      statusCode: err.statusCode,
+    });
+    return;
+  }
+
+  // MED-009: body-parser JSON parse failures arrive with type=entity.parse.failed
+  if (maybePayloadErr.type === "entity.parse.failed" || maybePayloadErr.status === 400) {
+    res.status(400).json({
+      error: "Malformed JSON body",
+      statusCode: 400,
     });
     return;
   }

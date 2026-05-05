@@ -6,9 +6,11 @@ import {
   rotateRefreshToken,
   logoutUser,
 } from "../services/auth.service";
+import { prisma } from "../lib/prisma";
 import { BadRequestError, UnauthorisedError } from "../utils/errors";
 import {
   REFRESH_COOKIE_NAME,
+  hashRefreshToken,
   setRefreshCookie,
   clearRefreshCookie,
 } from "../utils/tokenHelpers";
@@ -96,6 +98,48 @@ export const refresh = async (
     // On any refresh failure, clear the cookie so the client doesn't keep
     // retrying with a dead token
     clearRefreshCookie(res);
+    next(error);
+  }
+};
+
+/**
+ * HIGH-15: lightweight non-rotating verification of the refresh cookie.
+ * Used by the frontend Edge middleware to confirm the cookie is real and
+ * learn the user's role before serving role-shell UI. Does NOT rotate the
+ * token (rotation is reserved for /refresh) — calling /verify on every
+ * navigation is safe and idempotent.
+ *
+ * Returns 401 if the cookie is missing, unknown, revoked, or expired.
+ */
+export const verify = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const presented = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (!presented || typeof presented !== "string") {
+      throw new UnauthorisedError("Refresh token missing");
+    }
+
+    const tokenHash = hashRefreshToken(presented);
+    const stored = await prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      select: {
+        revokedAt: true,
+        expiresAt: true,
+        user: { select: { id: true, role: true } },
+      },
+    });
+
+    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+      throw new UnauthorisedError("Invalid refresh token");
+    }
+
+    res.status(200).json({
+      user: { id: stored.user.id, role: stored.user.role },
+    });
+  } catch (error) {
     next(error);
   }
 };

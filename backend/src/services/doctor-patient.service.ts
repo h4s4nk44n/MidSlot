@@ -1,12 +1,34 @@
 import { prisma } from "../lib/prisma";
 import { Prisma } from "../generated/prisma";
 import { ForbiddenError, NotFoundError, ConflictError } from "../utils/errors";
-import { PROFILE_SELECT } from "./profile.service";
 
 const ACTIVE_WINDOW_BUFFER_MS = 10 * 60 * 1000; // 10 min after end
 /** A BOOKED appointment is auto-cancelled this long after its slot ends if it
  *  was never started by the doctor. */
 const AUTO_CANCEL_AFTER_END_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Timezone in which "the day of the appointment" is evaluated. Defaults to the
+ * runtime's resolved timezone so local dev works out of the box; production
+ * deployments (which often run UTC) should set CLINIC_TIMEZONE explicitly
+ * (e.g. "Europe/Istanbul"). Without this, a server running UTC would reject
+ * "today" appointments for users in positive-offset timezones during the
+ * early hours of their local day.
+ */
+const CLINIC_TIMEZONE =
+  process.env.CLINIC_TIMEZONE ||
+  Intl.DateTimeFormat().resolvedOptions().timeZone ||
+  "UTC";
+
+/** Formats a Date as a YYYY-MM-DD string in the clinic timezone. */
+function clinicDayKey(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLINIC_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
 
 /**
  * Patient profile fields the treating doctor can edit during an in-session
@@ -31,9 +53,9 @@ export const DOCTOR_SESSION_EDITABLE_FIELDS = [
 export type DoctorSessionEditableField = (typeof DOCTOR_SESSION_EDITABLE_FIELDS)[number];
 
 /**
- * Patient fields surfaced to the doctor during a session. Hides national ID
- * and insurance provider/policy number per spec — those stay restricted to
- * admin / patient self-service.
+ * Patient fields surfaced to the doctor during a session. Hides insurance
+ * provider/policy number per spec — those stay restricted to admin / patient
+ * self-service. National ID is visible so the doctor can verify identity.
  */
 export const DOCTOR_SESSION_PATIENT_SELECT = {
   id: true,
@@ -53,6 +75,7 @@ export const DOCTOR_SESSION_PATIENT_SELECT = {
   allergies: true,
   chronicConditions: true,
   currentMedications: true,
+  nationalId: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -150,7 +173,8 @@ export async function assertActiveAppointment(
   }
 }
 
-/** Patient profile read-only — only callable when {@link assertActiveAppointment} passes. */
+/** Patient profile read-only — only callable when {@link assertActiveAppointment} passes.
+ *  Insurance fields are excluded; nationalId is included. */
 export async function getPatientProfileForDoctor(
   doctorUserId: string,
   patientUserId: string,
@@ -158,7 +182,7 @@ export async function getPatientProfileForDoctor(
   await assertActiveAppointment(doctorUserId, patientUserId);
   const profile = await prisma.user.findUnique({
     where: { id: patientUserId },
-    select: PROFILE_SELECT,
+    select: DOCTOR_SESSION_PATIENT_SELECT,
   });
   if (!profile) throw new NotFoundError("Patient not found.");
   return profile;
@@ -230,18 +254,37 @@ export async function setDoctorNoteForAppointment(
  * Auto-cancel BOOKED appointments that the doctor never opened within
  * 1 hour after the slot ended. Idempotent — safe to call from any list/read
  * path before serving results.
+ *
+ * HIGH-008: gated behind a Postgres session-scoped advisory lock so that
+ * behind a load balancer the sweep runs at most once at a time across all
+ * backend instances. The lock key (arbitrary 64-bit int) is constant across
+ * the cluster.
  */
+const AUTO_CANCEL_ADVISORY_LOCK_KEY = 7393104201n; // arbitrary stable bigint
 export async function autoCancelStaleAppointments(): Promise<number> {
-  const cutoff = new Date(Date.now() - AUTO_CANCEL_AFTER_END_MS);
-  const result = await prisma.appointment.updateMany({
-    where: {
-      status: "BOOKED",
-      startedAt: null,
-      timeSlot: { endTime: { lt: cutoff } },
-    },
-    data: { status: "CANCELLED" },
+  // pg_try_advisory_lock returns false if another session already holds it.
+  // We don't want to wait — we want to skip. The lock is released when the
+  // surrounding $transaction commits.
+  return await prisma.$transaction(async (tx) => {
+    const lock = await tx.$queryRaw<
+      Array<{ pg_try_advisory_xact_lock: boolean }>
+    >`SELECT pg_try_advisory_xact_lock(${AUTO_CANCEL_ADVISORY_LOCK_KEY}::bigint)`;
+    const acquired = lock[0]?.pg_try_advisory_xact_lock === true;
+    if (!acquired) {
+      return 0;
+    }
+
+    const cutoff = new Date(Date.now() - AUTO_CANCEL_AFTER_END_MS);
+    const result = await tx.appointment.updateMany({
+      where: {
+        status: "BOOKED",
+        startedAt: null,
+        timeSlot: { endTime: { lt: cutoff } },
+      },
+      data: { status: "CANCELLED" },
+    });
+    return result.count;
   });
-  return result.count;
 }
 
 /**
@@ -271,6 +314,19 @@ export async function startAppointmentSession(
   }
   if (appt.status === "COMPLETED") {
     throw new ConflictError("This appointment is already completed.");
+  }
+
+  // Doctors may only start an appointment on the day it is scheduled.
+  // Compare in the clinic timezone so a server running UTC does not reject
+  // a "today" appointment for a doctor in a positive-offset timezone.
+  if (!appt.startedAt) {
+    const slotDayKey = clinicDayKey(appt.timeSlot.startTime);
+    const todayKey = clinicDayKey(new Date());
+    if (slotDayKey !== todayKey) {
+      throw new ForbiddenError(
+        "An appointment can only be started on the day it is scheduled.",
+      );
+    }
   }
 
   if (!appt.startedAt) {
