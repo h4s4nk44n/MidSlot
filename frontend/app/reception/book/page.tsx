@@ -10,6 +10,7 @@ import { SlotPicker } from "@/components/reception/SlotPicker";
 import { Button } from "@/components/ui/Button";
 import type { PatientResult } from "@/lib/receptionist-api";
 import type { TimeSlot } from "@/lib/types";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 type Step = 1 | 2 | 3;
 
@@ -117,7 +118,7 @@ export default function ReceptionBookPage() {
               className="font-display text-3xl font-normal text-text-primary"
               style={{ letterSpacing: "-0.02em" }}
             >
-              {activeDoctor.user.name}&apos;s <em>patient</em>.
+              {doctorDisplayName(activeDoctor.user.name, activeDoctor.title)}&apos;s <em>patient</em>.
             </h1>
           </div>
         </div>
@@ -191,7 +192,7 @@ export default function ReceptionBookPage() {
                 Pick a <em>slot</em>.
               </h2>
               <p className="mt-1 text-sm text-text-muted">
-                Showing open slots for {activeDoctor.user.name}. Greyed slots are already taken.
+                Showing open slots for {doctorDisplayName(activeDoctor.user.name, activeDoctor.title)}. Greyed slots are already taken.
               </p>
             </div>
             {conflictSlot && (
@@ -235,7 +236,7 @@ export default function ReceptionBookPage() {
                   Doctor
                 </dt>
                 <dd className="text-right text-sm text-text-primary">
-                  <span className="font-medium">{activeDoctor.user.name}</span>
+                  <span className="font-medium">{doctorDisplayName(activeDoctor.user.name, activeDoctor.title)}</span>
                   {activeDoctor.specialization && (
                     <span className="block text-xs text-text-muted">{activeDoctor.specialization}</span>
                   )}

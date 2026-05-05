@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useActiveDoctor } from "@/lib/active-doctor-context";
 import { ActingAsSwitcher } from "@/components/reception/ActingAsSwitcher";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 export function TopNav() {
   const { user, logout, status } = useAuth();
@@ -38,9 +39,7 @@ export function TopNav() {
           {status !== "loading" && user && (
             <div className="hidden flex-col items-end border-r border-border pr-5 sm:flex">
               <span className="text-sm font-semibold text-text-primary">
-                {user.role === "DOCTOR" && !user.name.startsWith("Dr.")
-                  ? `Dr. ${user.name}`
-                  : user.name}
+                {user.role === "DOCTOR" ? doctorDisplayName(user.name) : user.name}
               </span>
               <span className="text-xs font-medium capitalize text-text-muted">
                 {user.role.toLowerCase()}
@@ -80,6 +79,14 @@ export function TopNav() {
                         My appointments
                       </Link>
                     </li>
+                    <li>
+                      <Link
+                        href="/patient/profile"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
+                        Profile
+                      </Link>
+                    </li>
                   </>
                 )}
 
@@ -92,6 +99,14 @@ export function TopNav() {
                         className="no-underline transition-colors hover:text-text-primary"
                       >
                         Dashboard
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href="/doctor/patients"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
+                        Patients
                       </Link>
                     </li>
                     <li>
@@ -122,6 +137,14 @@ export function TopNav() {
                         className="no-underline transition-colors hover:text-text-primary"
                       >
                         My doctors
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href="/reception/users"
+                        className="no-underline transition-colors hover:text-text-primary"
+                      >
+                        Users
                       </Link>
                     </li>
                     <li>

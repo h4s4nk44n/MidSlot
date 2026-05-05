@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import type { Doctor } from "@/lib/types";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 interface TimeSlot {
   id: string;
@@ -182,7 +183,7 @@ export default function DoctorProfilePage() {
 
         <div>
           <h1 className="font-display text-4xl font-normal text-text-primary">
-            {doctor.user.name.startsWith("Dr.") ? doctor.user.name : `Dr. ${doctor.user.name}`}
+            {doctorDisplayName(doctor.user.name, doctor.title)}
           </h1>
           <p className="mt-1 text-lg text-text-muted">{doctor.specialization}</p>
         </div>
@@ -252,7 +253,7 @@ export default function DoctorProfilePage() {
                 </div>
                 <h3 className="font-display text-2xl text-text-primary">Appointment Confirmed!</h3>
                 <p className="text-sm text-text-muted">
-                  Your appointment with {doctor.user.name.startsWith("Dr.") ? doctor.user.name : `Dr. ${doctor.user.name}`} has been successfully scheduled.
+                  Your appointment with {doctorDisplayName(doctor.user.name, doctor.title)} has been successfully scheduled.
                 </p>
                 <div className="flex w-full flex-col gap-2 pt-4">
                   <Button onClick={() => router.push("/patient/appointments")} className="w-full">
@@ -270,7 +271,7 @@ export default function DoctorProfilePage() {
                 </h3>
                 
                 <div className="mb-6 rounded-lg bg-neutral-50 p-5 border border-border">
-                  <p className="text-sm text-text-muted mb-2">Doctor: <span className="font-medium text-text-primary">{doctor.user.name.startsWith("Dr.") ? doctor.user.name : `Dr. ${doctor.user.name}`}</span></p>
+                  <p className="text-sm text-text-muted mb-2">Doctor: <span className="font-medium text-text-primary">{doctorDisplayName(doctor.user.name, doctor.title)}</span></p>
                   <p className="text-sm text-text-muted mb-2">Date: <span className="font-medium text-text-primary">{formatDateTab(getLocalDateString(bookingSlot.startTime))}</span></p>
                   <p className="text-sm text-text-muted">Time: <span className="font-medium text-text-primary">{formatTime(bookingSlot.startTime)}</span></p>
                 </div>

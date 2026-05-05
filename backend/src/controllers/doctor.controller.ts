@@ -1,0 +1,186 @@
+import { Request, Response } from "express";
+import { prisma } from "../lib/prisma";
+import { AuthRequest } from "../middlewares/auth.middleware";
+import { paginate } from "../utils/pagination";
+import { listDoctorsQuerySchema } from "../validations/doctor.validation";
+
+export const getDoctors = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = listDoctorsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid query parameters",
+        details: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const { page, pageSize, q, specialization, title, gender, ageMin, ageMax } = parsed.data;
+
+    const where: Record<string, unknown> = {};
+    if (specialization) where.specialization = specialization;
+    if (title) where.title = title;
+    if (gender) where.gender = gender;
+    if (q) {
+      // Schema uses a single `name` field on User; case-insensitive contains.
+      where.user = { name: { contains: q, mode: "insensitive" } };
+    }
+    // Age range -> dateOfBirth window. Someone with age N has a DOB in
+    // (today - (N+1)yr, today - N yr]. So ageMin maps to a DOB upper bound,
+    // and ageMax maps to a DOB lower bound.
+    if (ageMin !== undefined || ageMax !== undefined) {
+      const today = new Date();
+      const dobFilter: Record<string, Date> = {};
+      if (ageMin !== undefined) {
+        const upper = new Date(today);
+        upper.setFullYear(upper.getFullYear() - ageMin);
+        dobFilter.lte = upper;
+      }
+      if (ageMax !== undefined) {
+        const lower = new Date(today);
+        lower.setFullYear(lower.getFullYear() - (ageMax + 1));
+        dobFilter.gt = lower;
+      }
+      where.dateOfBirth = dobFilter;
+    }
+
+    const result = await paginate(prisma.doctor, {
+      where,
+      orderBy: { id: "asc" },
+      page,
+      pageSize,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("[getDoctors] Error:", error);
+    res.status(500).json({ message: "Internal server error while fetching doctors." });
+  }
+};
+
+export const getDoctorProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const doctor = await prisma.doctor.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    if (!doctor) {
+      res.status(404).json({ message: "Doctor not found" });
+      return;
+    }
+
+    res.status(200).json(doctor);
+  } catch (error) {
+    console.error("[getDoctorProfile] Error:", error);
+    res.status(500).json({ message: "Internal server error while fetching doctor profile." });
+  }
+};
+
+export const getDoctorSlots = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { date } = req.query;
+    const now = new Date();
+
+    const whereClause: Record<string, unknown> = {
+      doctorId: id,
+      isBooked: false,
+      startTime: { gt: now },
+    };
+
+    if (date) {
+      whereClause.date = new Date(String(date));
+    }
+
+    const slots = await prisma.timeSlot.findMany({
+      where: whereClause,
+      orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    });
+
+    res.status(200).json(slots);
+  } catch (error) {
+    console.error("[getDoctorSlots] Error:", error);
+    res.status(500).json({ message: "Internal server error while fetching doctor slots." });
+  }
+};
+
+export const getDashboard = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as AuthRequest;
+    const userId = authReq.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const doctor = await prisma.doctor.findUnique({ where: { userId } });
+
+    if (!doctor) {
+      res.status(404).json({ message: "Doctor profile not found." });
+      return;
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+
+    const upcomingAppointments = await prisma.appointment.findMany({
+      where: {
+        doctorId: doctor.id,
+        status: "BOOKED",
+        timeSlot: { startTime: { gt: now } },
+      },
+      take: 10,
+      orderBy: { timeSlot: { startTime: "asc" } },
+      include: {
+        patient: { select: { name: true, email: true } },
+        timeSlot: true,
+      },
+    });
+
+    const todaySlots = await prisma.timeSlot.findMany({
+      where: {
+        doctorId: doctor.id,
+        startTime: { gte: startOfToday, lt: endOfToday },
+      },
+      orderBy: { startTime: "asc" },
+    });
+
+    const totalAppointments = await prisma.appointment.count({ where: { doctorId: doctor.id } });
+    const completedAppointments = await prisma.appointment.count({
+      where: { doctorId: doctor.id, status: "COMPLETED" },
+    });
+    const cancelledAppointments = await prisma.appointment.count({
+      where: { doctorId: doctor.id, status: "CANCELLED" },
+    });
+    const availableSlots = await prisma.timeSlot.count({
+      where: { doctorId: doctor.id, isBooked: false, startTime: { gt: now } },
+    });
+
+    res.status(200).json({
+      upcomingAppointments,
+      todaySlots,
+      stats: {
+        totalAppointments,
+        completedAppointments,
+        cancelledAppointments,
+        availableSlots,
+      },
+    });
+  } catch (error) {
+    console.error("[getDashboard] Error:", error);
+    res.status(500).json({ message: "Internal server error while fetching dashboard." });
+  }
+};
