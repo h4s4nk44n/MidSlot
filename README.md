@@ -1523,25 +1523,45 @@ Idempotent — will skip if data already exists. In production it requires `SEED
 
 ### Doctors (18)
 
-Three "main" seeded doctors (full bios + specializations):
+All doctors share the same password (`Password123!` by default, or `SEED_USER_PASSWORD` if provided) and have populated `title`, `gender`, `dateOfBirth`, `bio`, plus full address / emergency-contact / blood-type / national-ID fields.
 
-| Email                       | Password       | Name              | Specialization     |
-| --------------------------- | -------------- | ----------------- | ------------------ |
-| `ayse.yilmaz@medislot.com`  | `Password123!` | Dr. Ayşe Yılmaz   | Cardiology         |
-| `mehmet.kaya@medislot.com`  | `Password123!` | Dr. Mehmet Kaya   | Dermatology        |
-| `zeynep.demir@medislot.com` | `Password123!` | Dr. Zeynep Demir  | Family Medicine    |
+| Email                          | Name           | Title              | Specialization        | Gender | City     |
+| ------------------------------ | -------------- | ------------------ | --------------------- | ------ | -------- |
+| `ayse.yilmaz@medislot.com`     | Ayşe Yılmaz    | Prof. Dr.          | Cardiology            | F      | Istanbul |
+| `mehmet.kaya@medislot.com`     | Mehmet Kaya    | Assoc. Prof. Dr.   | Dermatology           | M      | Ankara   |
+| `zeynep.demir@medislot.com`    | Zeynep Demir   | Specialist Dr.     | Family Medicine       | F      | Izmir    |
+| `selim.korkmaz@medislot.com`   | Selim Korkmaz  | Prof. Dr.          | Endocrinology         | M      | Istanbul |
+| `pinar.aydin@medislot.com`     | Pinar Aydin    | Assoc. Prof. Dr.   | ENT (Otolaryngology)  | F      | Istanbul |
+| `murat.dogan@medislot.com`     | Murat Dogan    | Specialist Dr.     | Gastroenterology      | M      | Ankara   |
+| `elif.senturk@medislot.com`    | Elif Senturk   | Assoc. Prof. Dr.   | Gynecology            | F      | Izmir    |
+| `burak.kilic@medislot.com`     | Burak Kilic    | Prof. Dr.          | Internal Medicine     | M      | Antalya  |
+| `hande.aksoy@medislot.com`     | Hande Aksoy    | Assoc. Prof. Dr.   | Neurology             | F      | Ankara   |
+| `cem.tekin@medislot.com`       | Cem Tekin      | Prof. Dr.          | Oncology              | M      | Istanbul |
+| `sevda.polat@medislot.com`     | Sevda Polat    | Specialist Dr.     | Ophthalmology         | F      | Izmir    |
+| `onur.erdem@medislot.com`      | Onur Erdem     | Assoc. Prof. Dr.   | Orthopedics           | M      | Ankara   |
+| `gizem.cetin@medislot.com`     | Gizem Cetin    | Specialist Dr.     | Pediatrics            | F      | Istanbul |
+| `tolga.bozkurt@medislot.com`   | Tolga Bozkurt  | Assoc. Prof. Dr.   | Psychiatry            | M      | Izmir    |
+| `ece.yildiz@medislot.com`      | Ece Yildiz     | Specialist Dr.     | Pulmonology           | F      | Ankara   |
+| `baris.acar@medislot.com`      | Baris Acar     | Assoc. Prof. Dr.   | Radiology             | M      | Istanbul |
+| `nazli.karaca@medislot.com`    | Nazli Karaca   | Specialist Dr.     | Urology               | F      | Izmir    |
+| `ozan.simsek@medislot.com`     | Ozan Simsek    | Prof. Dr.          | General Surgery       | M      | Istanbul |
 
-Plus **15 additional doctors** spread across the remaining departments (Endocrinology, ENT, Gastroenterology, General Practice, General Surgery, Gynecology, Internal Medicine, Neurology, Obstetrics, Oncology, Ophthalmology, Orthopedics, Pediatrics, Psychiatry, Pulmonology, Radiology, Urology) — all with the same `Password123!` and populated `title`, `gender`, `dateOfBirth`.
+> The Department dictionary contains a few specializations (e.g. Obstetrics, General Practice) for which no doctor is currently seeded — useful for testing empty-result UI states.
 
 ### Patients (8)
 
-| Email                       | Password       | Name           |
-| --------------------------- | -------------- | -------------- |
-| `ali.vural@example.com`     | `Password123!` | Ali Vural      |
-| `can.ozkan@example.com`     | `Password123!` | Can Özkan      |
-| `deniz.arslan@example.com`  | `Password123!` | Deniz Arslan   |
+All patients share the same password (`Password123!` by default). Each has a populated medical profile (blood type, allergies, chronic conditions, current medications, insurance) so the doctor patient-detail and session views render with realistic data.
 
-Plus 5 additional patients with realistic medical profiles (allergies, chronic conditions, current medications, insurance, blood types) for testing the doctor patient-detail and session views.
+| Email                        | Name           | Gender | DOB        | Blood | Allergies       | Chronic Conditions | Current Medications          | Insurance        |
+| ---------------------------- | -------------- | ------ | ---------- | ----- | --------------- | ------------------ | ---------------------------- | ---------------- |
+| `ali.vural@example.com`      | Ali Vural      | M      | 1990-06-12 | A+    | Penicillin      | Mild asthma        | Salbutamol inhaler as needed | SGK              |
+| `can.ozkan@example.com`      | Can Ozkan      | M      | 1985-11-30 | O−    | —               | Type 2 diabetes    | Metformin 500mg, twice daily | Allianz          |
+| `deniz.arslan@example.com`   | Deniz Arslan   | F      | 1998-03-08 | B+    | Pollen, peanuts | —                  | —                            | Anadolu Sigorta  |
+| `berna.aktas@example.com`    | Berna Aktas    | F      | 1991-04-21 | A−    | Sulfa drugs     | Hypothyroidism     | Levothyroxine 75mcg daily    | Axa Sigorta      |
+| `tugce.kose@example.com`     | Tugce Kose     | F      | 1996-09-14 | O+    | —               | —                  | —                            | SGK              |
+| `hakan.aslan@example.com`    | Hakan Aslan    | M      | 1978-12-05 | B+    | Latex           | Hypertension       | Amlodipine 5mg daily         | Allianz          |
+| `yusuf.gunes@example.com`    | Yusuf Gunes    | M      | 2001-05-18 | AB+   | —               | —                  | —                            | SGK              |
+| `irem.tan@example.com`       | Irem Tan       | F      | 1987-08-02 | O−    | Shellfish       | Migraine           | Sumatriptan as needed        | Anadolu Sigorta  |
 
 ### Other seeded data
 
