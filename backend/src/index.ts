@@ -61,6 +61,7 @@ app.use(cookieParser());
 
 /* <Routes> */
 app.use("/api", apiLimiter);
+app.use("/api", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api", slotRouter);
 app.use("/api", appointmentRouter);
@@ -70,7 +71,6 @@ app.use("/api/admin", adminRouter);
 app.use("/api/receptionist", receptionistRouter);
 app.use("/api/doctor", doctorPatientRouter);
 app.use("/api/profile", profileRouter);
-app.use("/api", healthRouter);
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({
