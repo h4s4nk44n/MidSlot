@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useActiveDoctor } from "@/lib/active-doctor-context";
 import { ActingAsSwitcher } from "@/components/reception/ActingAsSwitcher";
@@ -9,6 +10,12 @@ import { doctorDisplayName } from "@/lib/doctor-name";
 export function TopNav() {
   const { user, logout, status } = useAuth();
   const { activeDoctor } = useActiveDoctor();
+  const pathname = usePathname();
+
+  // Hide the top navigation on auth pages — AuthShell has its own brand + switch link.
+  if (pathname === "/login" || pathname === "/register") {
+    return null;
+  }
 
   return (
     <header className="h-topnav sticky top-0 z-20 border-b border-border bg-surface-raised">

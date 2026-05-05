@@ -32,7 +32,7 @@ export class AppError extends Error {
           target: object,
           constructor?: abstract new (...args: unknown[]) => unknown,
         ) => void
-      )(this, this.constructor as any); // <--- İŞTE HAYAT KURTARAN DÜZELTME BURADA (as any eklendi)
+      )(this, this.constructor as any); // <--- THIS IS THE LIFE-SAVING FIX (added `as any`)
     }
   }
 }
@@ -108,8 +108,11 @@ export class AccountLockedError extends AppError {
 
 /* 429 - Too Many Requests  */
 export class TooManyRequestsError extends AppError {
-  constructor(message = "Too Many Requests") {
+  retryAfterSeconds?: number;
+
+  constructor(message = "Too Many Requests", retryAfterSeconds?: number) {
     super(message, 429);
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 

@@ -47,6 +47,16 @@ export const authorize = (...roles: string[]) => {
   };
 };
 
+// HIGH-004: explicit Doctor select. Returning the whole Doctor row leaked
+// dateOfBirth and would auto-leak any future PHI added to the table. Surface
+// only the minimal fields the frontend needs.
+const DOCTOR_SAFE_SELECT = {
+  id: true,
+  title: true,
+  specialization: true,
+  bio: true,
+} as const;
+
 export const getMe = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
@@ -57,7 +67,10 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         name: true,
         role: true,
         createdAt: true,
-        doctor: req.user!.role === "DOCTOR" ? true : false,
+        doctor:
+          req.user!.role === "DOCTOR"
+            ? { select: DOCTOR_SAFE_SELECT }
+            : false,
       },
     });
 

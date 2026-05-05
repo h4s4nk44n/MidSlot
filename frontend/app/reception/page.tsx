@@ -210,7 +210,7 @@ function DoctorGridSkeleton() {
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
-  // "Dr. Ayşe Yılmaz" → "AY"; "Mehmet" → "M"
+  // "Dr. Jane Smith" → "JS"; "Anna" → "A"
   const meaningful = parts.filter((p) => p.length > 0 && p !== "Dr." && p !== "Dr");
   const first = meaningful[0]?.[0] ?? "";
   const last = meaningful[meaningful.length - 1]?.[0] ?? "";

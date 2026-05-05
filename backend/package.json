@@ -10,7 +10,9 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.ts\"",
-    "test": "jest --runInBand --forceExit",
+    "test": "dotenv -e .env.test -- jest --runInBand --forceExit",
+    "test:setup": "dotenv -e .env.test -- prisma migrate deploy",
+    "test:reset": "dotenv -e .env.test -- prisma migrate reset --force --skip-seed",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },

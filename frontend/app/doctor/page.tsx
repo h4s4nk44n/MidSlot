@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 
@@ -33,6 +34,7 @@ interface DashboardData {
 }
 
 export default function DoctorDashboardPage() {
+  const router = useRouter();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,10 +111,10 @@ export default function DoctorDashboardPage() {
         </div>
         
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => window.location.assign("/doctor/appointments")}>
+          <Button variant="outline" onClick={() => router.push("/doctor/appointments")}>
             View all appointments
           </Button>
-          <Button onClick={() => window.location.assign("/doctor/availability")}>
+          <Button onClick={() => router.push("/doctor/availability")}>
             Add availability
           </Button>
         </div>

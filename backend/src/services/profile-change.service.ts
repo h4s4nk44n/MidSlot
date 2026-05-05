@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
-import { randomInt } from "crypto";
+import { randomInt, createHash } from "crypto";
 import { prisma } from "../lib/prisma";
 import { getSmsProvider } from "../lib/sms";
 import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
+  TooManyRequestsError,
   UnprocessableEntityError,
 } from "../utils/errors";
 import {
@@ -15,11 +16,52 @@ import {
 } from "./profile.service";
 import type { UpdateProfileInput } from "../validations/profile.validation";
 import type { Prisma } from "../generated/prisma";
+import audit from "../utils/audit";
+import { AuditAction } from "../types/audit";
 
 type ProfilePayload = Prisma.UserGetPayload<{ select: typeof PROFILE_SELECT }>;
 
 const CODE_TTL_MINUTES = 5;
 const CODE_LENGTH_DIGITS = 6;
+const CODE_BCRYPT_ROUNDS = 12; // HIGH-002
+
+// CRIT-008: rate-limit windows for SMS code requests. Tracked in memory per
+// process — adequate for single-instance deployments. Behind a load balancer
+// move this to Redis (or a DB-backed counter on VerificationCode).
+const SMS_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 min
+const SMS_MAX_PER_TARGET_PHONE = 3;          // 3 codes per phone / 15 min
+const SMS_MAX_PER_REQUESTER = 10;            // 10 codes per staff member / 15 min
+const SMS_MAX_PER_TARGET_USER = 3;           // 3 codes per target user / 15 min
+const SMS_RESEND_COOLDOWN_MS = 60 * 1000;    // 1 min between sends to same target
+
+interface SmsRateRecord {
+  hits: number[]; // unix-ms timestamps within the rolling window
+}
+const smsRateState = new Map<string, SmsRateRecord>();
+
+function bumpAndCheck(
+  bucket: string,
+  limit: number,
+  now: number,
+  windowMs: number,
+): { allowed: boolean; oldestHitAt?: number } {
+  const rec = smsRateState.get(bucket) ?? { hits: [] };
+  // Drop expired hits.
+  rec.hits = rec.hits.filter((t) => now - t < windowMs);
+  if (rec.hits.length >= limit) {
+    const oldest = rec.hits[0];
+    smsRateState.set(bucket, rec);
+    return { allowed: false, oldestHitAt: oldest };
+  }
+  rec.hits.push(now);
+  smsRateState.set(bucket, rec);
+  return { allowed: true };
+}
+
+function hashPhone(phone: string): string {
+  // Hash so the rate-limit key isn't a raw phone number sitting in memory.
+  return createHash("sha256").update(phone).digest("hex").slice(0, 32);
+}
 
 export type ProfileChangePurpose =
   | "profile_edit_by_receptionist"
@@ -79,8 +121,40 @@ export async function requestProfileChange(
     throw new ForbiddenError("Doctors can only edit patient profiles.");
   }
 
+  // CRIT-008: per-phone, per-target-user, per-requester rate limiting + a
+  // 1-minute cooldown for resends to the same target. Audit-log every send.
+  const now = Date.now();
+  const phoneKey = `phone:${hashPhone(target.phone)}`;
+  const userKey = `user:${target.id}`;
+  const requesterKey = `req:${opts.requesterId}`;
+
+  // Resend cooldown
+  const lastForUser = smsRateState.get(userKey)?.hits.slice(-1)[0];
+  if (lastForUser && now - lastForUser < SMS_RESEND_COOLDOWN_MS) {
+    throw new TooManyRequestsError(
+      "Please wait before requesting another SMS code for this user.",
+      Math.ceil((SMS_RESEND_COOLDOWN_MS - (now - lastForUser)) / 1000),
+    );
+  }
+
+  for (const [bucket, limit] of [
+    [phoneKey, SMS_MAX_PER_TARGET_PHONE] as const,
+    [userKey, SMS_MAX_PER_TARGET_USER] as const,
+    [requesterKey, SMS_MAX_PER_REQUESTER] as const,
+  ]) {
+    const check = bumpAndCheck(bucket, limit, now, SMS_LIMIT_WINDOW_MS);
+    if (!check.allowed) {
+      const retryAfterMs =
+        SMS_LIMIT_WINDOW_MS - (now - (check.oldestHitAt ?? now));
+      throw new TooManyRequestsError(
+        "SMS code rate limit reached. Please try again later.",
+        Math.ceil(retryAfterMs / 1000),
+      );
+    }
+  }
+
   const code = generateCode();
-  const codeHash = await bcrypt.hash(code, 8);
+  const codeHash = await bcrypt.hash(code, CODE_BCRYPT_ROUNDS);
   const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000);
 
   const record = await prisma.verificationCode.create({
@@ -101,6 +175,21 @@ export async function requestProfileChange(
     target.phone,
     `MediSlot verification code: ${code}. Expires in ${CODE_TTL_MINUTES} minutes.`,
   );
+
+  // CRIT-008: audit each send so SMS-bombing or runaway costs are visible.
+  // Note: we do NOT log the code or full phone — only metadata about the send.
+  audit.log({
+    actorId: opts.requesterId,
+    action: AuditAction.SMS_CODE_SEND,
+    targetType: "User",
+    targetId: target.id,
+    metadata: {
+      requestId: record.id,
+      purpose: opts.purpose,
+      phoneHint: maskPhone(target.phone),
+      provider: sms.name,
+    },
+  });
 
   return {
     requestId: record.id,

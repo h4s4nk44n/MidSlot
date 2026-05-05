@@ -13,14 +13,31 @@ const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+const BCRYPT_ROUNDS = 12;
 
 // Pre-computed bcrypt hash used to neutralise the timing oracle on
 // loginUser when the email doesn't exist. Hashing the supplied password
 // against a real (but non-matching) hash makes the unknown-email branch take
 // roughly the same wall-clock time as the bad-password branch. The value
 // itself is never compared against any real account.
-const DUMMY_BCRYPT_HASH =
-  "$2b$10$abcdefghijklmnopqrstuuMh1bU0o2YJfmL9xN8xJZ7n3aFv8lN8a";
+// HIGH-003: generated at module load so it's a real, valid bcrypt hash and
+// bcrypt.compare reaches the same KDF cost as a real-user comparison.
+const DUMMY_BCRYPT_HASH = bcrypt.hashSync(
+  "midslot-dummy-password-not-used-for-anything",
+  BCRYPT_ROUNDS,
+);
+
+// Fields safe to return from auth flows. Avoid spreading the full User row —
+// it now contains PHI (allergies, chronicConditions, currentMedications,
+// insurance...) that the frontend doesn't need from /login.
+const PUBLIC_USER_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -82,7 +99,7 @@ export const registerUser = async (data: RegisterInput) => {
     }
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const dob = new Date(dateOfBirth);
 
   const user = await prisma.user.create({
@@ -123,7 +140,23 @@ interface LoginContext {
 export const loginUser = async (data: LoginInput, context: LoginContext = {}) => {
   const { email, password } = data;
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  // HIGH-005: select only the fields login needs. Sensitive PHI columns
+  // (allergies, chronicConditions, currentMedications, insurance, nationalId,
+  // phone, dateOfBirth, gender, address) are NEVER included in the response.
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      password: true,
+      loginAttempts: true,
+      lockedUntil: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 
   if (!user) {
     // Run a dummy bcrypt.compare so the unknown-email branch takes the same
@@ -165,10 +198,13 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
     const newAttempts = user.loginAttempts + 1;
 
     if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+      // HIGH-001: keep the counter; only reset on successful login. Resetting
+      // to 0 here gives repeat offenders a fresh 5-attempt window after every
+      // lockout cycle.
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          loginAttempts: 0,
+          loginAttempts: newAttempts,
           lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
         },
       });
@@ -234,7 +270,14 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
     userAgent: context.userAgent,
   });
 
-  const { password: _, loginAttempts: __, lockedUntil: ___, ...userSafe } = user;
+  const userSafe = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 
   return {
     accessToken,
@@ -253,7 +296,11 @@ export const rotateRefreshToken = async (
 
   const stored = await prisma.refreshToken.findUnique({
     where: { tokenHash },
-    include: { user: true },
+    include: {
+      user: {
+        select: PUBLIC_USER_SELECT,
+      },
+    },
   });
 
   // Unknown token → 401
@@ -271,7 +318,19 @@ export const rotateRefreshToken = async (
       },
       data: { revokedAt: new Date() },
     });
-    // TODO: hook into AuditLog once MEDI-46 lands (security event)
+    // CRIT-003: emit a security event so SOC/SIEM can alert on token theft.
+    audit.log({
+      actorId: stored.userId,
+      action: AuditAction.TOKEN_REUSE_DETECTED,
+      targetType: "RefreshToken",
+      targetId: stored.id,
+      metadata: {
+        familyId: stored.familyId,
+        firstRevokedAt: stored.revokedAt.toISOString(),
+      },
+      ip: context.ip,
+      userAgent: context.userAgent,
+    });
     throw new UnauthorisedError("Refresh token reuse detected; session revoked");
   }
 

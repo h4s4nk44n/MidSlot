@@ -30,21 +30,23 @@ type TokenGetter = () => string | null;
 type TokenSetter = (token: string | null) => void;
 type LogoutCallback = () => void;
 
+// CRIT-004: access token lives ONLY in module memory. localStorage is
+// XSS-exfiltratable; the httpOnly refresh cookie is what survives reloads
+// (silent refresh on app boot re-issues the access token).
 let memoryToken: string | null = null;
 
-let getAccessToken: TokenGetter = () => {
-  if (memoryToken) return memoryToken;
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("medislot_token");
-  }
-  return null;
-};
+let getAccessToken: TokenGetter = () => memoryToken;
 
 let setAccessToken: TokenSetter = (token: string | null) => {
   memoryToken = token;
+  // Best-effort cleanup of any historical localStorage token from older
+  // builds. Do NOT write to localStorage going forward.
   if (typeof window !== "undefined") {
-    if (token) localStorage.setItem("medislot_token", token);
-    else localStorage.removeItem("medislot_token");
+    try {
+      window.localStorage.removeItem("medislot_token");
+    } catch {
+      /* ignore quota / privacy-mode errors */
+    }
   }
 };
 const logoutListeners = new Set<LogoutCallback>();
@@ -105,12 +107,22 @@ export async function refreshAccessToken(): Promise<string | null> {
 // ------------------------ helpers ------------------------
 
 function getBaseUrl(): string {
-  // .env'den okumaya çalış, olmazsa direkt yaz
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  const fallbackUrl = "http://localhost:5000/api";
-  
-  const url = (envUrl && envUrl !== "") ? envUrl : fallbackUrl;
-  return url.replace(/\/$/, "");
+
+  // HIGH-016: in production a missing NEXT_PUBLIC_API_URL is a config bug —
+  // never silently fall back to localhost (which on shared hosts may be a
+  // different tenant or nothing at all).
+  if (!envUrl) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "NEXT_PUBLIC_API_URL is not set. Configure it at build time so the " +
+          "frontend bundle knows where the backend lives.",
+      );
+    }
+    return "http://localhost:3000/api";
+  }
+
+  return envUrl.replace(/\/$/, "");
 }
 
 async function safeJson(res: Response): Promise<unknown> {
@@ -167,7 +179,6 @@ export async function api<T = unknown>(path: string, opts: ApiRequestOptions = {
   } = opts;
 
   const token = getAccessToken();
-  console.log("Şu anki bilet (Token):", token);
 
   const finalHeaders: Record<string, string> = {
     Accept: "application/json",
@@ -186,7 +197,7 @@ export async function api<T = unknown>(path: string, opts: ApiRequestOptions = {
       ...rest,
       headers: finalHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),
-      credentials: "include", // Çerezleri backend'e gönderir
+      credentials: "include", // Sends cookies to the backend
       signal,
     });
   } catch (err: unknown) {

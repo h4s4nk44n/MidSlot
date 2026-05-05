@@ -46,7 +46,7 @@ export default function DoctorProfilePage() {
           ? slotsRes 
           : (slotsRes as { items: TimeSlot[] }).items || [];
 
-        // KESİN ÇÖZÜM 1: Sadece "Şu anki zamandan" (Date.now) daha ileride olan saatleri state'e al.
+        // DEFINITIVE FIX 1: Only push slots that are later than the current time (Date.now) into state.
         const nowMs = Date.now();
         const futureSlots = extractedSlots.filter(
           (slot) => new Date(slot.startTime).getTime() > nowMs
@@ -70,7 +70,7 @@ export default function DoctorProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  // KESİN ÇÖZÜM 2: Tarihleri Local Time (Yerel Saat) olarak grupla. (UTC kaymasını önler)
+  // DEFINITIVE FIX 2: Group dates by local time. (Prevents UTC offset issues)
   const getLocalDateString = (isoString: string) => {
     const d = new Date(isoString);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -102,7 +102,7 @@ export default function DoctorProfilePage() {
   };
 
   const formatDateTab = (dateString: string) => {
-    // "YYYY-MM-DD" formatını güvenli çevirmek için ortaya T12:00:00 ekliyoruz
+    // We append T12:00:00 in the middle to safely parse the "YYYY-MM-DD" format
     return new Date(`${dateString}T12:00:00`).toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
@@ -113,7 +113,7 @@ export default function DoctorProfilePage() {
   const handleConfirmBooking = async () => {
     if (!bookingSlot || !doctor) return;
 
-    // KESİN ÇÖZÜM 3: Tıklama anında da "Geçmiş zaman" güvenlik kontrolü
+    // DEFINITIVE FIX 3: "Past time" safety check at the moment of clicking too
     if (new Date(bookingSlot.startTime).getTime() < Date.now()) {
       setBookingError("This slot has already passed. Please select a valid future slot.");
       return;

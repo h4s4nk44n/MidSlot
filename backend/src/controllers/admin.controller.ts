@@ -392,7 +392,16 @@ export const getAuditLogs = async (
       return;
     }
 
-    const result = await listAuditLogs(parsed.data);
+    // HIGH-010: pass through whether the viewer is the founder admin so the
+    // service strips actor email for everyone else.
+    const viewer = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { isFounder: true },
+    });
+    const result = await listAuditLogs({
+      ...parsed.data,
+      viewerIsFounder: viewer?.isFounder === true,
+    });
     res.status(200).json(result);
   } catch (error) {
     next(error);
