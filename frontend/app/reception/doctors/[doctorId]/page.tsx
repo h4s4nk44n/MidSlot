@@ -30,10 +30,16 @@ export default function ReceptionAvailabilityPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Guard: deep-link without picking a doctor sends back to reception home.
+  // If the active doctor changes (e.g. via the "Acting as" switcher) while
+  // viewing another doctor's slots page, follow it to the new doctor's page.
   useEffect(() => {
     if (!hydrated) return;
-    if (!activeDoctor || activeDoctor.id !== params.doctorId) {
+    if (!activeDoctor) {
       router.replace("/reception");
+      return;
+    }
+    if (activeDoctor.id !== params.doctorId) {
+      router.replace(`/reception/doctors/${activeDoctor.id}`);
     }
   }, [hydrated, activeDoctor, params.doctorId, router]);
 

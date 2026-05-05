@@ -62,6 +62,7 @@ export function ActingAsSwitcher() {
   function handlePick(doctor: DoctorMinimal) {
     setActiveDoctor(doctor);
     setOpen(false);
+    router.push(`/reception/doctors/${doctor.id}`);
   }
 
   function handleClear() {
