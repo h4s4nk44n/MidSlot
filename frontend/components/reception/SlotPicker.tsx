@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchDoctorSlots } from "@/lib/receptionist-api";
 import type { TimeSlot } from "@/lib/types";
 import type { DoctorMinimal } from "@/lib/types";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 interface SlotPickerProps {
   doctor: DoctorMinimal;
@@ -106,7 +107,7 @@ export function SlotPicker({ doctor, selected, onChange }: SlotPickerProps) {
           No open slots.
         </p>
         <p className="mt-1 text-sm text-text-muted">
-          {doctor.user.name} has no available slots. Add them from the availability page.
+          {doctorDisplayName(doctor.user.name, doctor.title)} has no available slots. Add them from the availability page.
         </p>
         <button
           onClick={loadSlots}
@@ -122,7 +123,7 @@ export function SlotPicker({ doctor, selected, onChange }: SlotPickerProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="font-mono text-2xs font-medium uppercase tracking-widest text-text-subtle">
-          {doctor.user.name} · {slots.length} open slot{slots.length !== 1 ? "s" : ""}
+          {doctorDisplayName(doctor.user.name, doctor.title)} · {slots.length} open slot{slots.length !== 1 ? "s" : ""}
         </p>
         <button
           onClick={loadSlots}

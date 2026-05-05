@@ -42,7 +42,10 @@ export default function RootLayout({
       lang="en"
       className={`${newsreader.variable} ${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="flex min-h-screen flex-col bg-surface-page text-text-body">
+      <body
+        suppressHydrationWarning
+        className="flex min-h-screen flex-col bg-surface-page text-text-body"
+      >
         <AuthProvider>
           <ActiveDoctorProvider>
             <TopNav />

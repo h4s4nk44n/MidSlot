@@ -16,12 +16,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { apiGet, apiPatch, ApiError } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { AdminUser, Paginated, Role } from "@/lib/types";
+import {
+  DOCTOR_TITLES,
+  doctorDisplayName,
+  doctorInitials,
+  type DoctorTitle,
+} from "@/lib/doctor-name";
 import { Button } from "@/components/ui/Button";
+import { UserProfileDrawer } from "@/components/profile/UserProfileDrawer";
 
 const ROLES: Role[] = ["ADMIN", "DOCTOR", "RECEPTIONIST", "PATIENT"];
+// Roles offered in the row dropdown. ADMIN is intentionally absent — promotion
+// to admin goes through Grant/Transfer admin (with confirmation) and demotion
+// goes through Revoke admin. The dropdown is for the routine role moves.
+const ASSIGNABLE_ROLES: Role[] = ["DOCTOR", "RECEPTIONIST", "PATIENT"];
 
 const ROLE_LABEL: Record<Role, string> = {
   ADMIN: "Admin",
@@ -36,11 +47,7 @@ type ActiveFilter = "all" | "active" | "deactivated";
 const PAGE_SIZE = 10;
 
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "??";
-  const first = parts[0]![0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1]![0] : "";
-  return (first + last).toUpperCase();
+  return doctorInitials(name);
 }
 
 export default function AdminUsersPage() {
@@ -55,6 +62,7 @@ export default function AdminUsersPage() {
   const [data, setData] = useState<Paginated<AdminUser> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drawerUserId, setDrawerUserId] = useState<string | null>(null);
 
   // Debounce the search input — typing should not blast requests.
   // Resetting to page 1 is part of the same transition so we don't paginate
@@ -105,20 +113,74 @@ export default function AdminUsersPage() {
 
   // Mutations -----------------------------------------------------------
 
-  const handleRoleChange = async (target: AdminUser, nextRole: Role) => {
-    if (target.role === nextRole) return;
+  const handleRoleChange = async (
+    target: AdminUser,
+    nextRole: Role,
+    title?: DoctorTitle,
+  ) => {
+    if (target.role === nextRole && !title) return;
     try {
-      const updated = await apiPatch<AdminUser>(`/admin/users/${target.id}`, {
-        role: nextRole,
-      });
+      const body: { role?: Role; title?: DoctorTitle } = {};
+      if (target.role !== nextRole) body.role = nextRole;
+      if (title) body.title = title;
+
+      const updated = await apiPatch<AdminUser>(`/admin/users/${target.id}`, body);
       setData((prev) =>
         prev
           ? { ...prev, items: prev.items.map((u) => (u.id === updated.id ? updated : u)) }
           : prev,
       );
-      toast.success(`Role changed to ${ROLE_LABEL[nextRole]}.`);
+      toast.success(
+        target.role !== nextRole
+          ? `Role changed to ${ROLE_LABEL[nextRole]}.`
+          : `Title set to ${title}.`,
+      );
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Failed to update role.";
+      toast.error(msg);
+    }
+  };
+
+  const handleGrantAdmin = async (target: AdminUser) => {
+    try {
+      const updated = await apiPost<AdminUser>(`/admin/users/${target.id}/admin/grant`);
+      setData((prev) =>
+        prev
+          ? { ...prev, items: prev.items.map((u) => (u.id === updated.id ? updated : u)) }
+          : prev,
+      );
+      toast.success(`${target.name} is now an admin.`);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to grant admin.";
+      toast.error(msg);
+    }
+  };
+
+  const handleRevokeAdmin = async (target: AdminUser) => {
+    try {
+      const updated = await apiPost<AdminUser>(`/admin/users/${target.id}/admin/revoke`);
+      setData((prev) =>
+        prev
+          ? { ...prev, items: prev.items.map((u) => (u.id === updated.id ? updated : u)) }
+          : prev,
+      );
+      toast.success(`${target.name} is no longer an admin.`);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to revoke admin.";
+      toast.error(msg);
+    }
+  };
+
+  const handleTransferAdmin = async (target: AdminUser) => {
+    try {
+      await apiPost<AdminUser>(`/admin/users/${target.id}/admin/transfer`);
+      toast.success(
+        `Admin transferred to ${target.name}. You are now a regular user.`,
+      );
+      // Refresh the table to reflect both rows.
+      fetchUsers();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to transfer admin.";
       toast.error(msg);
     }
   };
@@ -234,8 +296,12 @@ export default function AdminUsersPage() {
                   key={u.id}
                   user={u}
                   isSelf={currentUser?.id === u.id}
-                  onChangeRole={(role) => handleRoleChange(u, role)}
+                  onChangeRole={(role, title) => handleRoleChange(u, role, title)}
                   onToggleActive={() => handleToggleActive(u)}
+                  onOpenSettings={() => setDrawerUserId(u.id)}
+                  onGrantAdmin={() => handleGrantAdmin(u)}
+                  onRevokeAdmin={() => handleRevokeAdmin(u)}
+                  onTransferAdmin={() => handleTransferAdmin(u)}
                 />
               ))
             )}
@@ -260,6 +326,14 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      {drawerUserId && (
+        <UserProfileDrawer
+          userId={drawerUserId}
+          actor="admin"
+          onClose={() => setDrawerUserId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -381,16 +455,39 @@ function UserRow({
   isSelf,
   onChangeRole,
   onToggleActive,
+  onOpenSettings,
+  onGrantAdmin,
+  onRevokeAdmin,
+  onTransferAdmin,
 }: {
   user: AdminUser;
   isSelf: boolean;
-  onChangeRole: (role: Role) => void;
+  onChangeRole: (role: Role, title?: DoctorTitle) => void;
   onToggleActive: () => void;
+  onOpenSettings: () => void;
+  onGrantAdmin: () => void;
+  onRevokeAdmin: () => void;
+  onTransferAdmin: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [confirmGrant, setConfirmGrant] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [confirmTransfer, setConfirmTransfer] = useState(false);
+  // When promoting a non-doctor → DOCTOR, ask for a title in the same step.
+  const [promoteTitle, setPromoteTitle] = useState<DoctorTitle | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Admin lifecycle visibility flags. Admins are immutable when self or founder;
+  // only non-admins may be granted admin or transferred-to.
+  const targetIsAdmin = user.role === "ADMIN";
+  const targetIsFounder = !!user.isFounder;
+  const canGrant = !targetIsAdmin && user.isActive;
+  const canRevoke = targetIsAdmin && !targetIsFounder && !isSelf;
+  const canTransfer = !targetIsAdmin && user.isActive && !isSelf;
+  // Self admin's role is locked — no role dropdown at all.
+  const roleDropdownDisabled = isSelf && targetIsAdmin;
 
   // Close on outside click.
   useEffect(() => {
@@ -425,8 +522,9 @@ function UserRow({
             <Avatar name={user.name} sage={user.role === "DOCTOR"} />
             <div>
               <div className="font-medium text-text-primary">
-                {user.role === "DOCTOR" ? "Dr. " : ""}
-                {user.name}
+                {user.role === "DOCTOR"
+                  ? doctorDisplayName(user.name, user.doctor?.title)
+                  : user.name}
                 {isSelf && (
                   <span className="ml-2 font-mono text-2xs uppercase tracking-widest text-text-subtle">
                     you
@@ -468,49 +566,104 @@ function UserRow({
             <div
               ref={menuRef}
               role="menu"
-              className="absolute right-5 top-[calc(100%-6px)] z-30 w-64 rounded-md border border-border bg-surface-overlay p-3 text-left shadow-overlay"
+              className="absolute right-5 top-[calc(100%-6px)] z-30 w-72 rounded-md border border-border bg-surface-overlay p-3 text-left shadow-overlay"
             >
-              {isSelf && (
-                <SelfActionWarning className="mb-2" />
+              {isSelf && targetIsAdmin && (
+                <FoundersNoteBanner className="mb-2" />
               )}
 
-              <div className="px-1 pb-1.5 font-mono text-2xs uppercase tracking-widest text-text-subtle">
-                Change role
-              </div>
-              <div className="space-y-0.5">
-                {ROLES.map((r) => {
-                  const active = r === user.role;
-                  return (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => {
-                        if (active) return;
-                        setMenuOpen(false);
-                        if (isSelf) {
-                          setPendingRole(r);
-                        } else {
-                          onChangeRole(r);
-                        }
-                      }}
-                      disabled={active}
-                      className={[
-                        "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm",
-                        active
-                          ? "bg-primary-50 text-primary-800"
-                          : "text-text-body hover:bg-neutral-100 hover:text-text-primary",
-                      ].join(" ")}
-                    >
-                      <span>{ROLE_LABEL[r]}</span>
-                      {active && (
-                        <span className="font-mono text-2xs uppercase tracking-widest text-primary-700">
-                          current
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {!roleDropdownDisabled && (
+                <>
+                  <div className="px-1 pb-1.5 font-mono text-2xs uppercase tracking-widest text-text-subtle">
+                    Change role
+                  </div>
+                  <div className="space-y-0.5">
+                    {ASSIGNABLE_ROLES.map((r) => {
+                      const active = r === user.role;
+                      // Founder admins cannot be demoted.
+                      const disabled = active || targetIsFounder;
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            if (disabled) return;
+                            setMenuOpen(false);
+                            if (r === "DOCTOR" && user.role !== "DOCTOR") {
+                              setPendingRole(r);
+                              setPromoteTitle("Dr.");
+                              return;
+                            }
+                            onChangeRole(r);
+                          }}
+                          disabled={disabled}
+                          className={[
+                            "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm",
+                            active
+                              ? "bg-primary-50 text-primary-800"
+                              : "text-text-body hover:bg-neutral-100 hover:text-text-primary",
+                            disabled && !active ? "opacity-50" : "",
+                          ].join(" ")}
+                        >
+                          <span>{ROLE_LABEL[r]}</span>
+                          {active && (
+                            <span className="font-mono text-2xs uppercase tracking-widest text-primary-700">
+                              current
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {(canGrant || canRevoke || canTransfer) && (
+                <>
+                  <div className="my-2 h-px bg-border" />
+                  <div className="px-1 pb-1.5 font-mono text-2xs uppercase tracking-widest text-text-subtle">
+                    Admin role
+                  </div>
+                  <div className="space-y-0.5">
+                    {canGrant && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setConfirmGrant(true);
+                        }}
+                        className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-text-body hover:bg-neutral-100 hover:text-text-primary"
+                      >
+                        <span>Grant admin</span>
+                      </button>
+                    )}
+                    {canRevoke && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setConfirmRevoke(true);
+                        }}
+                        className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-danger-fg hover:bg-danger-bg"
+                      >
+                        <span>Revoke admin</span>
+                      </button>
+                    )}
+                    {canTransfer && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setConfirmTransfer(true);
+                        }}
+                        className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-text-body hover:bg-neutral-100 hover:text-text-primary"
+                      >
+                        <span>Transfer admin to this user</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="my-2 h-px bg-border" />
 
@@ -518,43 +671,142 @@ function UserRow({
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  setConfirmDeactivate(true);
+                  onOpenSettings();
                 }}
-                className={[
-                  "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm",
-                  user.isActive
-                    ? "text-danger-fg hover:bg-danger-bg"
-                    : "text-text-body hover:bg-neutral-100 hover:text-text-primary",
-                ].join(" ")}
+                className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-text-body hover:bg-neutral-100 hover:text-text-primary"
               >
-                <span>{user.isActive ? "Deactivate user" : "Reactivate user"}</span>
+                <span>Settings &amp; profile</span>
+                <span className="font-mono text-2xs uppercase tracking-widest text-text-subtle">
+                  view
+                </span>
               </button>
+
+              {!isSelf && !targetIsFounder && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setConfirmDeactivate(true);
+                  }}
+                  className={[
+                    "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm",
+                    user.isActive
+                      ? "text-danger-fg hover:bg-danger-bg"
+                      : "text-text-body hover:bg-neutral-100 hover:text-text-primary",
+                  ].join(" ")}
+                >
+                  <span>{user.isActive ? "Deactivate user" : "Reactivate user"}</span>
+                </button>
+              )}
             </div>
           )}
         </td>
       </tr>
 
-      {/* Self role-change confirmation (with prominent warning) */}
-      {pendingRole && (
+      {/* Promote-to-doctor: pick a title first */}
+      {pendingRole === "DOCTOR" && user.role !== "DOCTOR" && promoteTitle && (
         <ConfirmDialog
-          title="Change your own role?"
+          title="Promote to doctor"
+          tone="primary"
+          banner={isSelf ? <SelfActionWarning /> : null}
+          body={
+            <div className="space-y-3">
+              <p>
+                <strong>{user.name}</strong> will gain doctor privileges. Pick a
+                title — it will appear before their name across the app.
+              </p>
+              <div>
+                <label className="mb-1 block font-mono text-2xs uppercase tracking-widest text-text-subtle">
+                  Title
+                </label>
+                <select
+                  value={promoteTitle}
+                  onChange={(e) => setPromoteTitle(e.target.value as DoctorTitle)}
+                  className="h-[34px] w-full rounded-md border border-border-strong bg-surface-raised px-2.5 text-sm text-text-body focus:border-primary-500 focus:outline-none focus-visible:shadow-focus"
+                >
+                  {DOCTOR_TITLES.map((t) => (
+                    <option key={t} value={t}>
+                      {t} {user.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          }
+          confirmLabel="Promote"
+          onConfirm={() => {
+            const title = promoteTitle;
+            setPendingRole(null);
+            setPromoteTitle(null);
+            if (title) onChangeRole("DOCTOR", title);
+          }}
+          onCancel={() => {
+            setPendingRole(null);
+            setPromoteTitle(null);
+          }}
+        />
+      )}
+
+      {/* Grant admin confirmation */}
+      {confirmGrant && (
+        <ConfirmDialog
+          title="Grant admin to this user?"
+          tone="primary"
+          body={
+            <>
+              <strong>{user.name}</strong> will gain full admin privileges,
+              including the ability to manage users, departments, and audit logs.
+            </>
+          }
+          confirmLabel="Yes, grant admin"
+          onConfirm={() => {
+            setConfirmGrant(false);
+            onGrantAdmin();
+          }}
+          onCancel={() => setConfirmGrant(false)}
+        />
+      )}
+
+      {/* Revoke admin confirmation */}
+      {confirmRevoke && (
+        <ConfirmDialog
+          title="Revoke admin from this user?"
+          tone="danger"
+          body={
+            <>
+              <strong>{user.name}</strong> will lose admin privileges and become
+              a regular patient account. They can be promoted again later.
+            </>
+          }
+          confirmLabel="Yes, revoke admin"
+          onConfirm={() => {
+            setConfirmRevoke(false);
+            onRevokeAdmin();
+          }}
+          onCancel={() => setConfirmRevoke(false)}
+        />
+      )}
+
+      {/* Transfer admin confirmation (caller becomes a regular user) */}
+      {confirmTransfer && (
+        <ConfirmDialog
+          title="Transfer your admin role?"
           tone="danger"
           banner={<SelfActionWarning />}
           body={
             <>
-              You are about to change your role from{" "}
-              <strong>{ROLE_LABEL[user.role]}</strong> to{" "}
-              <strong>{ROLE_LABEL[pendingRole]}</strong>. This may revoke
-              access to admin-only areas immediately.
+              <strong>{user.name}</strong> will become an admin and{" "}
+              <strong>your account will become a regular patient</strong>. You
+              will lose access to admin tools immediately. This cannot be
+              undone without another admin granting you back.
             </>
           }
-          confirmLabel="Change my role"
+          confirmLabel="Yes, transfer admin"
           onConfirm={() => {
-            const r = pendingRole;
-            setPendingRole(null);
-            if (r) onChangeRole(r);
+            setConfirmTransfer(false);
+            onTransferAdmin();
           }}
-          onCancel={() => setPendingRole(null)}
+          onCancel={() => setConfirmTransfer(false)}
         />
       )}
 
@@ -585,6 +837,23 @@ function UserRow({
         />
       )}
     </>
+  );
+}
+
+function FoundersNoteBanner({ className }: { className?: string }) {
+  return (
+    <div
+      className={[
+        "flex items-start gap-2 rounded-md border border-border bg-neutral-50 px-3 py-2 text-xs text-text-muted",
+        className ?? "",
+      ].join(" ")}
+    >
+      <span>
+        Your admin role is locked. Use{" "}
+        <strong>Transfer admin to this user</strong> on someone else&apos;s row
+        to step down.
+      </span>
+    </div>
   );
 }
 

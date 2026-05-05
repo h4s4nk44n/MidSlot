@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useActiveDoctor } from "@/lib/active-doctor-context";
 import { fetchAssignedDoctors } from "@/lib/receptionist-api";
 import type { DoctorMinimal } from "@/lib/types";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 /**
  * "Acting as Dr. X" switcher for the top nav. Renders only for RECEPTIONIST.
@@ -74,7 +75,7 @@ export function ActingAsSwitcher() {
   }
 
   const label = activeDoctor
-    ? `Acting as ${activeDoctor.user.name}`
+    ? `Acting as ${doctorDisplayName(activeDoctor.user.name, activeDoctor.title)}`
     : "Pick a doctor";
 
   return (
@@ -155,7 +156,7 @@ export function ActingAsSwitcher() {
                       >
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium">
-                            {d.user.name}
+                            {doctorDisplayName(d.user.name, d.title)}
                           </span>
                           {d.specialization && (
                             <span className="block truncate text-xs text-text-muted">

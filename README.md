@@ -12,7 +12,7 @@
 - [Data Model](#data-model)
 - [Setup Instructions](#setup-instructions)
 - [Running the Application](#running-the-application)
-- [Docker / Deployment](#docker--deployment)
+- [Run with Docker](#run-with-docker)
 - [Smoke Test](#smoke-test)
 - [API Documentation](#api-documentation)
   - [Authentication Endpoints](#authentication-endpoints)
@@ -236,16 +236,21 @@ cd MidSlot/MidSlot
 
 ### Step 2: Install Dependencies
 
+The repo is split into `backend/` (Express API) and `frontend/` (Next.js).
+Install each subproject's dependencies:
+
 ```bash
-npm install
+cd backend  && npm install && cd ..
+cd frontend && npm install && cd ..
 ```
 
 ### Step 3: Configure Environment Variables
 
-Create a `.env` file by copying the example:
+Each subproject has its own `.env`:
 
 ```bash
-cp .env.example .env
+cp backend/.env.example  backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
 Then edit `.env` with your PostgreSQL credentials:
@@ -287,6 +292,7 @@ CREATE DATABASE midslot;
 ### Step 5: Generate Prisma Client
 
 ```bash
+cd backend
 npm run prisma:generate
 ```
 
@@ -323,6 +329,7 @@ See [Seed Data](#seed-data--test-accounts) for login credentials.
 ### Development Mode (with auto-reload)
 
 ```bash
+cd backend
 npm run dev
 ```
 
@@ -331,6 +338,7 @@ The server will start on `http://localhost:3000` with hot-reload enabled via nod
 ### Production Build
 
 ```bash
+cd backend
 # Compile TypeScript to JavaScript
 npm run build
 
@@ -353,7 +361,7 @@ The web app lives in [`frontend/`](./frontend) — Next.js 15 App Router, Tailwi
 
 ```bash
 cd frontend
-cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL=http://localhost:5000
+cp .env.example .env.local         # set NEXT_PUBLIC_API_URL=http://localhost:3000
 npm install
 npm run dev                        # http://localhost:3001
 # or: npm run build && npm start
@@ -370,24 +378,128 @@ npm run dev                        # http://localhost:3001
 
 ---
 
-## Docker / Deployment
+## Run with Docker
 
-A `docker-compose.yml` is included for one-command local setup (API + PostgreSQL).
+The repo ships a three-service `docker-compose.yml` that runs **postgres**,
+**backend** (Express API), and **frontend** (Next.js) on a private `medi`
+network. One command boots the whole stack.
+
+### Prerequisites
+
+- [Docker Engine](https://docs.docker.com/engine/install/) 24+ (or Docker
+  Desktop) with the Compose v2 plugin (`docker compose version` should print).
+- ~2 GB free disk for images.
+- Ports **3000** (backend) and **3001** (frontend) free on the host.
+
+### 1. Clone & enter the repo
 
 ```bash
-# Start full stack (builds API image, runs migrations + seed)
-docker compose up -d --build
-
-# View logs
-docker compose logs -f api
-
-# Tear down (remove volumes too)
-docker compose down -v
+git clone https://github.com/<your-org>/MidSlot.git
+cd MidSlot
 ```
 
-The API will be available at `http://localhost:5000` and PostgreSQL at `localhost:5433`.
+### 2. Create your env file
 
-> **Note:** The frontend is not included in the docker-compose setup — run it locally with `cd frontend && npm run dev`.
+```bash
+cp .env.example .env
+```
+
+Then **edit `.env`** — at minimum set a real `JWT_SECRET` (generate with
+`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`).
+Defaults work for everything else on a local machine.
+
+### 3. Build & start
+
+```bash
+docker compose up --build
+```
+
+First run takes a few minutes (npm installs + Next build). Subsequent runs
+reuse cached layers. Add `-d` to run detached.
+
+When the stack is healthy:
+- **Frontend:** http://localhost:3001
+- **Backend API:** http://localhost:3000/api
+- **Health probe:** http://localhost:3000/api/health
+
+The backend container runs `prisma migrate deploy` automatically on every
+start, so the schema is always in sync with `backend/prisma/migrations/`.
+
+### 4. Seed demo data (optional)
+
+The compose stack does **not** run the Prisma seed automatically (it would
+re-insert duplicates on every restart). Run it manually once:
+
+```bash
+docker compose exec backend npx prisma db seed
+```
+
+### 5. Common commands
+
+```bash
+docker compose logs -f backend         # tail backend logs
+docker compose logs -f frontend        # tail frontend logs
+docker compose ps                      # service status + health
+docker compose restart backend         # restart a single service
+docker compose down                    # stop containers (data preserved)
+docker compose down -v                 # stop + WIPE the postgres volume
+```
+
+### Changing ports
+
+Edit `.env`:
+
+```
+BACKEND_HOST_PORT=4000      # publish backend on host port 4000
+FRONTEND_HOST_PORT=4001     # publish frontend on host port 4001
+NEXT_PUBLIC_API_URL=http://localhost:4000   # MUST match BACKEND_HOST_PORT
+```
+
+> ⚠️ `NEXT_PUBLIC_API_URL` is **baked into the frontend bundle at build time**.
+> If you change it you must rebuild: `docker compose build frontend`.
+
+### Changing DB credentials
+
+Edit `.env`:
+
+```
+POSTGRES_USER=midslot
+POSTGRES_PASSWORD=a-strong-password
+POSTGRES_DB=midslot_prod
+```
+
+Then **wipe the volume** (the existing one was initialised with the old
+credentials and will not pick up the change):
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+To expose Postgres on the host (e.g. for `psql` or a GUI), uncomment the
+`ports:` block in `docker-compose.yml` under the `postgres` service.
+
+### Troubleshooting
+
+| Symptom | Likely cause / fix |
+|---|---|
+| `port is already allocated` | Something else is using 3000/3001. Set `BACKEND_HOST_PORT` / `FRONTEND_HOST_PORT` in `.env`. |
+| `JWT_SECRET must be set and at least 32 chars` (backend exits) | You didn't set `JWT_SECRET` in `.env`. Generate one and rebuild. |
+| Frontend loads but every API call fails with CORS / 0-status | `NEXT_PUBLIC_API_URL` doesn't match the backend's host port. Update `.env` and `docker compose build frontend`. |
+| Backend stuck on "waiting for postgres" | Postgres healthcheck is still failing. `docker compose logs postgres` for details; usually a stale volume — `docker compose down -v` and retry. |
+| Schema drift / Prisma errors after pulling new code | Migrations didn't run. `docker compose restart backend` and watch logs. |
+
+### Local (non-Docker) development
+
+If you'd rather run things bare-metal:
+
+```bash
+cd backend  && cp .env.example .env  && npm install && npm run dev
+cd frontend && cp .env.example .env.local && npm install && npm run dev
+```
+
+You'll need a Postgres running on `localhost:5432` with a database matching
+`DATABASE_URL` in `backend/.env`.
 
 ---
 

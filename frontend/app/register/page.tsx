@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AuthShell, AuthSwitchLink } from "@/components/auth/AuthShell";
 import { FormField } from "@/components/ui/FormField";
 import { Button } from "@/components/ui/Button";
-import { registerSchema } from "@/lib/auth-validation";
+import { registerSchema, REGISTER_GENDERS } from "@/lib/auth-validation";
 import { apiPost, ApiError } from "@/lib/api";
 
 interface RegisterResponse {
@@ -17,19 +17,35 @@ interface RegisterResponse {
   createdAt: string;
 }
 
+type FieldKey =
+  | "name"
+  | "email"
+  | "password"
+  | "phone"
+  | "dateOfBirth"
+  | "gender"
+  | "nationalId";
+
+const GENDER_LABEL: Record<(typeof REGISTER_GENDERS)[number], string> = {
+  MALE: "Male",
+  FEMALE: "Female",
+  OTHER: "Other",
+  UNDISCLOSED: "Prefer not to say",
+};
+
 export default function RegisterPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState<(typeof REGISTER_GENDERS)[number]>("UNDISCLOSED");
+  const [nationalId, setNationalId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-  }>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -38,22 +54,23 @@ export default function RegisterPage() {
     setFieldErrors({});
     setServerError(null);
 
-    // Client-side validation — same rules as backend MEDI-43.
     const parsed = registerSchema.safeParse({
       name,
       email,
       password,
       role: "PATIENT",
+      phone,
+      dateOfBirth,
+      gender,
+      nationalId,
     });
 
     if (!parsed.success) {
-      const next: typeof fieldErrors = {};
+      const next: Partial<Record<FieldKey, string>> = {};
       for (const issue of parsed.error.issues) {
-        const field = issue.path[0];
-        if (field === "name" || field === "email" || field === "password") {
-          // First error per field wins.
-          if (!next[field]) next[field] = issue.message;
-        }
+        const field = issue.path[0] as FieldKey | undefined;
+        if (!field) continue;
+        if (!next[field]) next[field] = issue.message;
       }
       setFieldErrors(next);
       return;
@@ -72,14 +89,17 @@ export default function RegisterPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          // Email already registered. Show inline on the email field.
-          setFieldErrors({ email: "An account with this email already exists." });
+          // Email or national ID conflict — disambiguate by message text.
+          if (/national id/i.test(err.message)) {
+            setFieldErrors({ nationalId: err.message });
+          } else {
+            setFieldErrors({ email: "An account with this email already exists." });
+          }
         } else if (err.status === 429) {
           setServerError(
             "Too many attempts from your network. Please wait a moment and try again.",
           );
         } else if (err.status === 400) {
-          // Backend validation rejected — show its message.
           setServerError(err.message || "Some details look invalid. Please review.");
         } else {
           setServerError(err.message || "Sign-up failed. Please try again.");
@@ -94,6 +114,8 @@ export default function RegisterPage() {
     }
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <AuthShell
       eyebrow="Register · Step 1 of 1"
@@ -102,12 +124,14 @@ export default function RegisterPage() {
           Create your <em>account</em>.
         </>
       }
-      subtitle="Patients sign up here. Doctors and receptionists are added by an administrator."
+      subtitle="Patients sign up here. Doctors and receptionists are added by an administrator. The contact, demographic and identity fields below are required so staff can reach you and verify your records."
       topRight={
         <AuthSwitchLink prompt="Already have an account?" href="/login" cta="Sign in" />
       }
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3.5">
+        <SectionHeading>Account</SectionHeading>
+
         <FormField
           name="name"
           type="text"
@@ -145,6 +169,77 @@ export default function RegisterPage() {
           disabled={submitting}
         />
 
+        <SectionHeading>Contact</SectionHeading>
+
+        <FormField
+          name="phone"
+          type="tel"
+          label="Phone number"
+          autoComplete="tel"
+          required
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          error={fieldErrors.phone}
+          hint="We send appointment confirmations and verification codes here."
+          disabled={submitting}
+        />
+
+        <SectionHeading>Demographics</SectionHeading>
+
+        <FormField
+          name="dateOfBirth"
+          type="date"
+          label="Date of birth"
+          required
+          max={today}
+          value={dateOfBirth}
+          onChange={(e) => setDateOfBirth(e.target.value)}
+          error={fieldErrors.dateOfBirth}
+          disabled={submitting}
+        />
+
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="register-gender"
+            className="font-mono text-2xs font-medium uppercase tracking-widest text-text-muted"
+          >
+            Gender <span className="text-danger-fg">*</span>
+          </label>
+          <select
+            id="register-gender"
+            name="gender"
+            value={gender}
+            onChange={(e) =>
+              setGender(e.target.value as (typeof REGISTER_GENDERS)[number])
+            }
+            disabled={submitting}
+            className="h-[38px] rounded-md border border-border-strong bg-surface-raised px-2.5 text-sm text-text-body focus:border-primary-500 focus:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:bg-neutral-50"
+          >
+            {REGISTER_GENDERS.map((g) => (
+              <option key={g} value={g}>
+                {GENDER_LABEL[g]}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.gender && (
+            <p className="text-xs text-danger-fg">{fieldErrors.gender}</p>
+          )}
+        </div>
+
+        <SectionHeading>Identity</SectionHeading>
+
+        <FormField
+          name="nationalId"
+          type="text"
+          label="National ID"
+          required
+          value={nationalId}
+          onChange={(e) => setNationalId(e.target.value)}
+          error={fieldErrors.nationalId}
+          hint="Required for medical record verification. Insurance and medical history can be added later from your profile."
+          disabled={submitting}
+        />
+
         {serverError && (
           <div
             role="alert"
@@ -164,5 +259,13 @@ export default function RegisterPage() {
         </p>
       </form>
     </AuthShell>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mt-2 font-mono text-2xs font-medium uppercase tracking-widest text-text-subtle">
+      {children}
+    </p>
   );
 }
