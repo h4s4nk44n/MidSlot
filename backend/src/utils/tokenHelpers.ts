@@ -15,9 +15,9 @@ export function hashRefreshToken(rawToken: string): string {
 export function setRefreshCookie(res: Response, rawToken: string): void {
   res.cookie(REFRESH_COOKIE_NAME, rawToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     sameSite: "lax",
-    path: "/api/auth",
+    path: "/",
     maxAge: REFRESH_TOKEN_TTL_MS,
   });
 }
@@ -25,8 +25,8 @@ export function setRefreshCookie(res: Response, rawToken: string): void {
 export function clearRefreshCookie(res: Response): void {
   res.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     sameSite: "lax",
-    path: "/api/auth",
+    path: "/",
   });
 }
