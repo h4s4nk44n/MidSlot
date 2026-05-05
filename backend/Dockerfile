@@ -14,6 +14,11 @@ COPY prisma ./prisma
 COPY src ./src
 RUN npx prisma generate --schema=prisma/schema.prisma
 RUN npm run build
+# Compile the seed script so it can run with plain `node` at runtime
+# (no ts-node / typescript needed in the slim runtime image).
+RUN npx tsc prisma/seed.ts --outDir dist \
+    --esModuleInterop --target ES2020 --module commonjs \
+    --skipLibCheck --resolveJsonModule
 
 # ---------- runtime ----------
 FROM node:20-alpine AS runtime
@@ -35,7 +40,9 @@ RUN npm ci --omit=dev \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder /app/src/generated/prisma ./dist/generated/prisma
+# Compiled seed.js requires "../src/generated/prisma" relative to /app/dist/.
+COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
 COPY --from=builder /app/prisma ./prisma
 COPY prisma.config.ts ./
 
@@ -48,4 +55,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 \
 
 # Apply pending migrations then boot. `migrate deploy` is the production-safe
 # command (no schema drift detection, no prompts).
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/seed.js && node dist/index.js"]

@@ -61,7 +61,7 @@ services:
         # Baked into the JS bundle at build time. The browser must be able to
         # reach this URL — so for local dev it's the host-side backend port,
         # NOT the internal compose hostname.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
     restart: unless-stopped
     depends_on:
       backend:
