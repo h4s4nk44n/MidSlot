@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { TimeSlot } from "@/lib/types";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 export default function ReceptionAvailabilityPage() {
   const router = useRouter();
@@ -114,7 +115,7 @@ export default function ReceptionAvailabilityPage() {
       alert("Cannot delete a booked slot. Cancel the appointment first.");
       return;
     }
-    if (!window.confirm(`Remove this slot from ${activeDoctor?.user.name}'s schedule?`)) return;
+    if (!window.confirm(`Remove this slot from ${activeDoctor ? doctorDisplayName(activeDoctor.user.name, activeDoctor.title) : ""}'s schedule?`)) return;
     setDeletingId(slot.id);
     try {
       await deleteDoctorSlot(slot.id);
@@ -164,7 +165,7 @@ export default function ReceptionAvailabilityPage() {
                 className="font-display text-3xl font-normal text-text-primary"
                 style={{ letterSpacing: "-0.02em" }}
               >
-                {activeDoctor.user.name}&apos;s <em>slots</em>.
+                {doctorDisplayName(activeDoctor.user.name, activeDoctor.title)}&apos;s <em>slots</em>.
               </h1>
               {activeDoctor.specialization && (
                 <p className="text-sm text-text-muted">{activeDoctor.specialization}</p>
@@ -205,7 +206,7 @@ export default function ReceptionAvailabilityPage() {
               </svg>
             }
             heading="No upcoming slots"
-            body={`${activeDoctor.user.name} has no open slots for future dates. Add availability now.`}
+            body={`${doctorDisplayName(activeDoctor.user.name, activeDoctor.title)} has no open slots for future dates. Add availability now.`}
             action={{ label: "Add slot", onClick: handleOpenModal }}
           />
         ) : (
@@ -266,7 +267,7 @@ export default function ReceptionAvailabilityPage() {
             {/* Whose slot is this — always visible in the modal header */}
             <div className="mb-4 rounded-md border border-sage-200 bg-sage-50 px-3 py-2">
               <p className="font-mono text-2xs font-medium uppercase tracking-widest text-sage-700">
-                Adding slot for · {activeDoctor.user.name}
+                Adding slot for · {doctorDisplayName(activeDoctor.user.name, activeDoctor.title)}
               </p>
             </div>
 

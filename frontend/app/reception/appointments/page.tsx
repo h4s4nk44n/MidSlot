@@ -9,13 +9,15 @@ import { TableRowSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Paginated, AppointmentStatus } from "@/lib/types";
 import type { DoctorMinimal } from "@/lib/types";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 interface ReceptionAppointment {
   id: string;
   status: AppointmentStatus;
   notes: string | null;
+  doctorNote: string | null;
   patient: { id: string; name: string; email: string };
-  doctor: { id: string; user: { name: string } };
+  doctor: { id: string; title?: string | null; user: { name: string } };
   timeSlot: { date: string; startTime: string; endTime: string };
 }
 
@@ -170,7 +172,7 @@ export default function ReceptionAppointmentsPage() {
           >
             <option value="">All doctors</option>
             {doctors.map((d) => (
-              <option key={d.id} value={d.id}>{d.user.name}</option>
+              <option key={d.id} value={d.id}>{doctorDisplayName(d.user.name, d.title)}</option>
             ))}
           </select>
 
@@ -247,16 +249,29 @@ export default function ReceptionAppointmentsPage() {
                           <span className="font-medium text-text-primary">{apt.patient.name}</span>
                           <span className="block text-xs text-text-muted">{apt.patient.email}</span>
                         </td>
-                        <td className="px-4 py-3 text-text-body">{apt.doctor.user.name}</td>
+                        <td className="px-4 py-3 text-text-body">{doctorDisplayName(apt.doctor.user.name, apt.doctor.title)}</td>
                         <td className="px-4 py-3 font-mono text-sm text-text-primary">
                           {fmt(apt.timeSlot.startTime)}
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={apt.status} />
                         </td>
-                        <td className="max-w-[180px] px-4 py-3 text-xs text-text-muted">
-                          {apt.notes ? (
-                            <span className="line-clamp-2 italic">{apt.notes}</span>
+                        <td className="max-w-[220px] px-4 py-3 text-xs text-text-muted">
+                          {apt.notes || apt.doctorNote ? (
+                            <div className="space-y-1.5">
+                              {apt.notes && (
+                                <div title={apt.notes}>
+                                  <span className="font-mono text-[10px] uppercase tracking-widest text-text-subtle">Patient</span>
+                                  <p className="line-clamp-2 italic">{apt.notes}</p>
+                                </div>
+                              )}
+                              {apt.doctorNote && (
+                                <div title={apt.doctorNote}>
+                                  <span className="font-mono text-[10px] uppercase tracking-widest text-text-subtle">Doctor</span>
+                                  <p className="line-clamp-2">{apt.doctorNote}</p>
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-text-subtle">—</span>
                           )}

@@ -1,20 +1,34 @@
 # Dependencies
 node_modules/
+**/node_modules/
 
 # Build output
 dist/
+backend/dist/
+frontend/.next/
+frontend/out/
+frontend/tsconfig.tsbuildinfo
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 
 # Prisma local databases
-prisma/*.db
-prisma/*.db-journal
+**/prisma/*.db
+**/prisma/*.db-journal
 
 # Prisma generated client
-src/generated/
+**/src/generated/
+
+# Test / auth artifacts
+backend/cookies.txt
+backend/cookies-old.txt
+backend/errors.txt
+backend/test_output.log
 
 # IDE
 .vscode/

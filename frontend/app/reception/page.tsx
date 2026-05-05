@@ -6,6 +6,7 @@ import { fetchAssignedDoctors } from "@/lib/receptionist-api";
 import { useActiveDoctor } from "@/lib/active-doctor-context";
 import { ApiError } from "@/lib/api";
 import type { DoctorMinimal } from "@/lib/types";
+import { doctorDisplayName } from "@/lib/doctor-name";
 
 export default function ReceptionHome() {
   const router = useRouter();
@@ -124,7 +125,7 @@ function DoctorCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-md font-medium text-text-primary">
-            {doctor.user.name}
+            {doctorDisplayName(doctor.user.name, doctor.title)}
           </p>
           {doctor.specialization && (
             <p className="mt-0.5 text-sm text-text-muted">

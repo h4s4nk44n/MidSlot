@@ -2,19 +2,27 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { apiGet, apiPatch } from "@/lib/api";
+import { toast } from "sonner";
+import { apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Paginated } from "@/lib/types";
 
+const NOTE_MAX_LENGTH = 4000;
+
 type AppointmentStatus = "BOOKED" | "CANCELLED" | "COMPLETED";
 type TabType = "upcoming" | "completed" | "cancelled";
+
+const ACTIVE_WINDOW_BUFFER_MS = 10 * 60 * 1000;
 
 interface Appointment {
   id: string;
   status: AppointmentStatus;
   notes: string | null;
+  doctorNote: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
   patient: {
     name: string;
     email: string;
@@ -24,6 +32,121 @@ interface Appointment {
     startTime: string;
     endTime: string;
   };
+}
+
+interface DoctorNoteEditorProps {
+  appointmentId: string;
+  initialNote: string | null;
+  endTime: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  status: AppointmentStatus;
+  onSaved: () => void;
+}
+
+function DoctorNoteEditor({
+  appointmentId,
+  initialNote,
+  endTime,
+  startedAt,
+  endedAt,
+  status,
+  onSaved,
+}: DoctorNoteEditorProps) {
+  const [note, setNote] = useState(initialNote ?? "");
+  const [saving, setSaving] = useState(false);
+  // Re-render every 30s so the active window flips automatically as time passes.
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    setNote(initialNote ?? "");
+  }, [initialNote]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Editable iff: doctor has started the session AND we're inside the
+  // (endedAt ?? slot.endTime) + 10min window. status must still be BOOKED
+  // OR just turned COMPLETED (endedAt set) — but the backend gates on
+  // status === BOOKED, so once ended the editor falls back to read-only.
+  const referenceEnd = endedAt ? new Date(endedAt) : new Date(endTime);
+  const windowEnd = new Date(referenceEnd.getTime() + ACTIVE_WINDOW_BUFFER_MS);
+  const isActive = !!startedAt && status === "BOOKED" && now <= windowEnd;
+  const dirty = (note ?? "").trim() !== (initialNote ?? "").trim();
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiPut(`/doctor/appointments/${appointmentId}/note`, { note });
+      toast.success("Note saved.");
+      onSaved();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to save the note.";
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isActive) {
+    if (!initialNote) {
+      // No note + outside window — nothing useful to show.
+      if (status === "BOOKED") {
+        return (
+          <div className="mt-3 rounded-md border border-dashed border-border bg-surface-base p-3 text-xs text-text-muted">
+            {startedAt
+              ? "The 10-minute note window has closed."
+              : "Start the appointment to write a clinical note (editable until 10 minutes after the visit ends)."}
+          </div>
+        );
+      }
+      return null;
+    }
+    return (
+      <div className="mt-3 rounded-md border border-border bg-surface-raised p-3">
+        <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-text-muted">
+          Doctor note
+        </div>
+        <p className="whitespace-pre-wrap text-sm text-text-body">{initialNote}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-md border border-border bg-surface-raised p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-text-muted">
+          Doctor note
+        </div>
+        <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+          Active window
+        </span>
+      </div>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
+        rows={4}
+        placeholder="Write a note about this visit (visible to the patient and other staff)…"
+        className="w-full resize-y rounded-md border border-border bg-surface-base p-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+        disabled={saving}
+      />
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-text-muted">
+          {note.length}/{NOTE_MAX_LENGTH}
+        </span>
+        <Button
+          size="sm"
+          onClick={handleSave}
+          loading={saving}
+          disabled={!dirty}
+        >
+          Save note
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export default function DoctorAppointmentsPage() {
@@ -75,7 +198,7 @@ export default function DoctorAppointmentsPage() {
   // --- Actions ---
   const handleCancel = async (id: string) => {
     if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
-    
+
     setActionId(id);
     try {
       await apiPatch(`/appointments/${id}/cancel`);
@@ -87,15 +210,31 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
-  const handleComplete = async (id: string) => {
-    if (!window.confirm("Mark this appointment as completed?")) return;
-    
+  /** Open the in-person session: POSTs /start (idempotent) then routes to the session page. */
+  const handleStart = async (id: string) => {
     setActionId(id);
     try {
-      await apiPatch(`/appointments/${id}/complete`);
+      await apiPost(`/doctor/appointments/${id}/start`);
+      router.push(`/doctor/appointments/${id}/session`);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to start the appointment.";
+      toast.error(msg);
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  /** End an already-started session — flips to COMPLETED and stamps endedAt. */
+  const handleEnd = async (id: string) => {
+    if (!window.confirm("End this appointment? It will be marked completed.")) return;
+    setActionId(id);
+    try {
+      await apiPost(`/doctor/appointments/${id}/end`);
+      toast.success("Appointment ended.");
       fetchAppointments();
-    } catch (err: any) {
-      alert(err.message || "Failed to mark as completed.");
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to end the appointment.";
+      toast.error(msg);
     } finally {
       setActionId(null);
     }
@@ -185,18 +324,21 @@ export default function DoctorAppointmentsPage() {
             <div className="space-y-4">
               {appointments.items.map((apt) => {
                 const { dateStr, timeStr } = formatDateTime(apt.timeSlot.startTime);
-                
-                // Logic to check if slot is in the past (to enable "Mark Completed")
-                const isPast = new Date(apt.timeSlot.endTime).getTime() < new Date().getTime();
-                
+                const inSession = !!apt.startedAt && !apt.endedAt;
+
                 return (
                   <div key={apt.id} className="flex flex-col sm:flex-row sm:items-start justify-between rounded-lg border border-border bg-surface-base p-5 transition-all hover:border-border-strong hover:shadow-sm">
                     <div className="flex flex-col gap-1.5 mb-4 sm:mb-0 w-full sm:w-2/3">
                       <div className="flex items-center gap-3">
                         <h4 className="font-display text-lg font-medium text-text-primary">{apt.patient.name}</h4>
                         <StatusBadge status={apt.status} />
+                        {inSession && (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-700/10">
+                            In session
+                          </span>
+                        )}
                       </div>
-                      
+
                       <div className="mt-1 flex items-center gap-2 text-sm font-medium text-text-primary bg-neutral-50 px-3 py-1.5 rounded-md w-fit border border-border">
                         <svg className="h-4 w-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -209,23 +351,49 @@ export default function DoctorAppointmentsPage() {
                           "{apt.notes}"
                         </div>
                       )}
+
+                      <DoctorNoteEditor
+                        appointmentId={apt.id}
+                        initialNote={apt.doctorNote}
+                        endTime={apt.timeSlot.endTime}
+                        startedAt={apt.startedAt}
+                        endedAt={apt.endedAt}
+                        status={apt.status}
+                        onSaved={fetchAppointments}
+                      />
                     </div>
-                    
+
                     {/* Status Actions */}
                     {apt.status === "BOOKED" && activeTab === "upcoming" && (
                       <div className="flex flex-col shrink-0 sm:ml-4 gap-2">
-                        {isPast && (
-                          <Button 
-                            variant="outline" 
-                            onClick={() => handleComplete(apt.id)}
+                        {!apt.startedAt ? (
+                          <Button
+                            onClick={() => handleStart(apt.id)}
                             loading={actionId === apt.id}
-                            className="w-full sm:w-auto border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+                            className="w-full sm:w-auto"
                           >
-                            Mark Completed
+                            Start Appointment
                           </Button>
+                        ) : (
+                          <>
+                            <Button
+                              onClick={() => router.push(`/doctor/appointments/${apt.id}/session`)}
+                              className="w-full sm:w-auto"
+                            >
+                              Open Session
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handleEnd(apt.id)}
+                              loading={actionId === apt.id}
+                              className="w-full sm:w-auto text-danger-fg hover:bg-danger-bg hover:border-danger-border transition-colors"
+                            >
+                              End Session
+                            </Button>
+                          </>
                         )}
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => handleCancel(apt.id)}
                           loading={actionId === apt.id}
                           className="w-full sm:w-auto text-danger-fg hover:bg-danger-bg hover:border-danger-border transition-colors"

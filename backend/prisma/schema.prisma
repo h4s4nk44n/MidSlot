@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DOCTOR
+  PATIENT
+  ADMIN
+  RECEPTIONIST
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CANCELLED
+  COMPLETED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNDISCLOSED
+}
+
+/// Patient blood type. UNKNOWN is the default for users who haven't provided
+/// a value (most non-patient roles, plus patients pre-onboarding).
+enum BloodType {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+  UNKNOWN
+}
+
+model User {
+  id    String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  loginAttempts Int       @default(0)
+  lockedUntil   DateTime?
+  isActive      Boolean   @default(true)
+  /// True for the very first admin (seeded). Other admins cannot demote or
+  /// otherwise alter a founder admin. Set once at seed time and never updated
+  /// programmatically.
+  isFounder     Boolean   @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Patient profile fields (nullable; meaningful for PATIENT role, harmless on others) ──
+  // Doctor-specific gender/dateOfBirth still live on the Doctor model so the
+  // doctor browse continues to work without a data migration. These User-level
+  // fields are sourced from the patient profile editor.
+  phone                    String?
+  dateOfBirth              DateTime?
+  gender                   Gender    @default(UNDISCLOSED)
+  address                  String?
+  city                     String?
+  country                  String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  bloodType                BloodType @default(UNKNOWN)
+  allergies                String?
+  chronicConditions        String?
+  currentMedications       String?
+  /// Nullable + unique: most users don't have one, but no two patients can share.
+  nationalId               String?   @unique
+  insuranceProvider        String?
+  insurancePolicyNumber    String?
+
+  doctor         Doctor?
+  appointments   Appointment[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]   @relation("AuditActor")
+
+  receptionistAssignments ReceptionistAssignment[] @relation("ReceptionistAssignments")
+  assignedAssignments     ReceptionistAssignment[] @relation("AssignedByUser")
+
+  verificationCodesAsTarget    VerificationCode[] @relation("VerificationTarget")
+  verificationCodesAsRequester VerificationCode[] @relation("VerificationRequester")
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Doctor {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  title          String?
+  specialization String?
+  bio            String?
+  /// Used to compute age for patient-facing filters. Optional so existing
+  /// doctors stay valid until an admin sets a value.
+  dateOfBirth    DateTime?
+  /// Defaults to UNDISCLOSED so existing rows have a deterministic value
+  /// without requiring data migration. Patient filter excludes UNDISCLOSED
+  /// unless "Any gender" is selected.
+  gender         Gender    @default(UNDISCLOSED)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timeSlots    TimeSlot[]
+  appointments Appointment[]
+  receptionistAssignments ReceptionistAssignment[]
+
+  @@index([userId])
+  @@index([gender])
+}
+
+model TimeSlot {
+  id        String   @id @default(uuid())
+  doctorId  String
+  date      DateTime
+  startTime DateTime
+  endTime   DateTime
+  isBooked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  doctor      Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointment Appointment?
+
+  @@index([doctorId])
+  @@index([date])
+  @@index([doctorId, date])
+}
+
+model Appointment {
+  id         String            @id @default(uuid())
+  patientId  String
+  doctorId   String
+  timeSlotId String            @unique
+  status     AppointmentStatus @default(BOOKED)
+  /// Patient-supplied note when booking — visible to the patient and to staff.
+  notes      String?
+  /// Doctor's clinical note. Editable only by the doctor during the active
+  /// appointment window (start \u2192 end + 10 min). Visible to admin/reception
+  /// and to the patient (so they can see what was recorded for their visit).
+  doctorNote String?
+  /// Set when the doctor opens the in-person session. Required before any
+  /// notes can be written. Auto-cancellation looks at this field: if null
+  /// 1 hour after slot.endTime, the appointment flips to CANCELLED.
+  startedAt  DateTime?
+  /// Set when the doctor explicitly ends the session — also flips status
+  /// to COMPLETED.
+  endedAt    DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  patient  User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor   Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  timeSlot TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+}
+
+model ReceptionistAssignment {
+  id               String   @id @default(uuid())
+  receptionistId   String
+  doctorId         String
+  assignedByUserId String
+  assignedAt       DateTime @default(now())
+
+  receptionist User   @relation("ReceptionistAssignments", fields: [receptionistId], references: [id], onDelete: Cascade)
+  doctor       Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  assignedBy   User   @relation("AssignedByUser", fields: [assignedByUserId], references: [id])
+
+  @@unique([receptionistId, doctorId])
+  @@index([receptionistId])
+  @@index([doctorId])
+  @@index([assignedByUserId])
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique
+  familyId     String
+  issuedAt     DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @unique
+  userAgent    String?
+  ip           String?
+  createdAt    DateTime  @default(now())
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy  RefreshToken? @relation("TokenRotation", fields: [replacedById], references: [id])
+  replaces    RefreshToken? @relation("TokenRotation")
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+/// Curated dictionary of hospital departments / specializations.
+/// Doctor.specialization remains a free String so deleting a department does
+/// not orphan existing doctors; this table is the source of truth for pickers.
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([name])
+}
+
+/// One-time verification code for staff-initiated profile changes.
+///
+/// When a receptionist or doctor wants to edit fields that require patient
+/// confirmation, the pending change set is stashed here as `payload` and a
+/// 6-digit code is sent to the patient's phone. The code is stored hashed.
+/// On successful verification the payload is applied to the user's profile.
+///
+/// `consumedAt` is set to mark a code as used (single-use). Expired or
+/// fully-attempted codes stay in the table for audit and are pruned by a
+/// future job; this prevents reuse but keeps history.
+model VerificationCode {
+  id            String   @id @default(uuid())
+  /// User whose profile will be modified (the SMS recipient).
+  targetUserId  String
+  /// Staff member who initiated the change.
+  requesterId   String
+  /// Discriminator: "profile_edit_by_receptionist" | "profile_edit_by_doctor".
+  purpose       String
+  /// Bcrypt hash of the 6-digit code; never stored in plaintext.
+  codeHash      String
+  /// Pending profile change set as JSON. Applied verbatim on verify.
+  payload       Json
+  /// Snapshot of `target.updatedAt` at the moment the code was issued. On
+  /// verify we reject the apply if the patient's profile was modified in the
+  /// meantime ("stale payload"), so a 5-minute-old change set can't silently
+  /// stomp newer edits. Nullable to keep older codes (issued before this
+  /// column existed) verifiable.
+  targetUpdatedAtSnapshot DateTime?
+  attempts      Int      @default(0)
+  maxAttempts   Int      @default(5)
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  target    User @relation("VerificationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  requester User @relation("VerificationRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([targetUserId])
+  @@index([requesterId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}

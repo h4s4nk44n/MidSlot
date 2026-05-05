@@ -1,0 +1,34 @@
+node_modules
+npm-debug.log*
+
+# Build outputs (rebuilt inside image)
+dist
+src/generated
+
+# Local env / secrets — never bake into image
+.env
+.env.*
+!.env.example
+
+# Tests / dev artifacts
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+jest.config.ts
+coverage
+test-api.sh
+test_output.log
+errors.txt
+cookies.txt
+cookies-old.txt
+
+# VCS / IDE / OS
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Old / unused
+Dockerfile.old
