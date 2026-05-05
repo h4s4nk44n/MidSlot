@@ -35,12 +35,23 @@ const strongPassword = z
     "This password is too common — choose something less predictable",
   );
 
+const PHONE_REGEX = /^\+?[0-9 ()-]{6,20}$/;
+export const REGISTER_GENDERS = ["MALE", "FEMALE", "OTHER", "UNDISCLOSED"] as const;
+
 export const registerSchema = z
   .object({
     email: z.string().email("Enter a valid email address"),
     name: z.string().min(1, "Name is required"),
     password: strongPassword,
     role: z.literal("PATIENT"), // self-registration is patient-only
+    phone: z.string().trim().regex(PHONE_REGEX, "Enter a valid phone number"),
+    dateOfBirth: z.string().min(1, "Date of birth is required"),
+    gender: z.enum(REGISTER_GENDERS),
+    nationalId: z
+      .string()
+      .trim()
+      .min(4, "National ID is required")
+      .max(32, "National ID is too long"),
   })
   .refine(
     ({ password, name, email }) => {
