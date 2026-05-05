@@ -23,6 +23,13 @@ function atTime(base: Date, hour: number, minute: number): Date {
 async function main(): Promise<void> {
   console.log("Starting database seed...\n");
 
+  // Idempotency guard: skip when the DB already has users so container
+  // restarts (CMD runs seed every boot) don't wipe live data.
+  if ((await prisma.user.count()) > 0) {
+    console.log("Seed skipped — database already populated.");
+    return;
+  }
+
   const hashedPassword = await bcrypt.hash("Password123!", 10);
   const hashedAdminPassword = await bcrypt.hash("Admin@MediSlot2026!", 10);
 
@@ -132,6 +139,26 @@ async function main(): Promise<void> {
       },
     });
 
+    await tx.user.create({
+      data: {
+        email: "burcu.ozturk@medislot.com",
+        password: hashedPassword,
+        name: "Burcu Öztürk",
+        role: Role.RECEPTIONIST,
+        phone: "+90 534 666 3030",
+        dateOfBirth: new Date("1995-03-15"),
+        gender: Gender.FEMALE,
+        address: "Kordon Boyu Cad. No:18, Daire 7",
+        city: "İzmir",
+        country: "Türkiye",
+        emergencyContactName: "Mert Öztürk",
+        emergencyContactPhone: "+90 534 666 3031",
+        emergencyContactRelation: "Brother",
+        bloodType: BloodType.O_POSITIVE,
+        nationalId: "20000000003",
+      },
+    });
+
     // ── 4. Create doctor users ─────────────────────────────────────────────
     console.log("Creating doctor users...");
 
@@ -231,6 +258,314 @@ async function main(): Promise<void> {
       },
     });
 
+    // ── Additional 15 doctors ──────────────────────────────────────────────
+    const additionalDoctors: Array<{
+      email: string;
+      name: string;
+      phone: string;
+      dateOfBirth: string;
+      gender: Gender;
+      address: string;
+      city: string;
+      emergencyContactName: string;
+      emergencyContactPhone: string;
+      emergencyContactRelation: string;
+      bloodType: BloodType;
+      nationalId: string;
+      title: string;
+      specialization: string;
+      bio: string;
+    }> = [
+      {
+        email: "selim.korkmaz@medislot.com",
+        name: "Selim Korkmaz",
+        phone: "+90 532 700 1010",
+        dateOfBirth: "1975-06-09",
+        gender: Gender.MALE,
+        address: "Etiler Mah. Nispetiye Cad. No:48",
+        city: "İstanbul",
+        emergencyContactName: "Lale Korkmaz",
+        emergencyContactPhone: "+90 532 700 1011",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.O_POSITIVE,
+        nationalId: "30000000004",
+        title: "Prof. Dr.",
+        specialization: "Endocrinology",
+        bio: "Endocrinologist focused on diabetes management and thyroid disorders.",
+      },
+      {
+        email: "pinar.aydin@medislot.com",
+        name: "Pınar Aydın",
+        phone: "+90 533 700 1020",
+        dateOfBirth: "1982-11-14",
+        gender: Gender.FEMALE,
+        address: "Bağdat Cad. No:212, Daire 9",
+        city: "İstanbul",
+        emergencyContactName: "Cemil Aydın",
+        emergencyContactPhone: "+90 533 700 1021",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.A_POSITIVE,
+        nationalId: "30000000005",
+        title: "Assoc. Prof. Dr.",
+        specialization: "ENT (Otolaryngology)",
+        bio: "ENT specialist with expertise in pediatric otolaryngology and sinus surgery.",
+      },
+      {
+        email: "murat.dogan@medislot.com",
+        name: "Murat Doğan",
+        phone: "+90 535 700 1030",
+        dateOfBirth: "1978-02-20",
+        gender: Gender.MALE,
+        address: "Kavaklıdere Mah. Tunalı Hilmi Cad. No:88",
+        city: "Ankara",
+        emergencyContactName: "Aslı Doğan",
+        emergencyContactPhone: "+90 535 700 1031",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.B_NEGATIVE,
+        nationalId: "30000000006",
+        title: "Specialist Dr.",
+        specialization: "Gastroenterology",
+        bio: "Gastroenterologist specializing in endoscopy and inflammatory bowel disease.",
+      },
+      {
+        email: "elif.senturk@medislot.com",
+        name: "Elif Şentürk",
+        phone: "+90 532 700 1040",
+        dateOfBirth: "1984-07-03",
+        gender: Gender.FEMALE,
+        address: "Alsancak Mah. 1453 Sok. No:21",
+        city: "İzmir",
+        emergencyContactName: "Kerem Şentürk",
+        emergencyContactPhone: "+90 532 700 1041",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.AB_POSITIVE,
+        nationalId: "30000000007",
+        title: "Assoc. Prof. Dr.",
+        specialization: "Gynecology",
+        bio: "Gynecologist with focus on reproductive health and minimally invasive surgery.",
+      },
+      {
+        email: "burak.kilic@medislot.com",
+        name: "Burak Kılıç",
+        phone: "+90 533 700 1050",
+        dateOfBirth: "1979-09-28",
+        gender: Gender.MALE,
+        address: "Konyaaltı Cad. No:71",
+        city: "Antalya",
+        emergencyContactName: "Sibel Kılıç",
+        emergencyContactPhone: "+90 533 700 1051",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.O_NEGATIVE,
+        nationalId: "30000000008",
+        title: "Prof. Dr.",
+        specialization: "Internal Medicine",
+        bio: "Internist providing comprehensive adult care with focus on chronic disease management.",
+      },
+      {
+        email: "hande.aksoy@medislot.com",
+        name: "Hande Aksoy",
+        phone: "+90 535 700 1060",
+        dateOfBirth: "1981-05-12",
+        gender: Gender.FEMALE,
+        address: "Çankaya Mah. Atatürk Bulvarı No:155",
+        city: "Ankara",
+        emergencyContactName: "Tarık Aksoy",
+        emergencyContactPhone: "+90 535 700 1061",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.A_NEGATIVE,
+        nationalId: "30000000009",
+        title: "Assoc. Prof. Dr.",
+        specialization: "Neurology",
+        bio: "Neurologist with research interest in epilepsy and movement disorders.",
+      },
+      {
+        email: "cem.tekin@medislot.com",
+        name: "Cem Tekin",
+        phone: "+90 532 700 1070",
+        dateOfBirth: "1973-12-01",
+        gender: Gender.MALE,
+        address: "Levent Mah. Büyükdere Cad. No:201",
+        city: "İstanbul",
+        emergencyContactName: "Burcu Tekin",
+        emergencyContactPhone: "+90 532 700 1071",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.B_POSITIVE,
+        nationalId: "30000000010",
+        title: "Prof. Dr.",
+        specialization: "Oncology",
+        bio: "Medical oncologist with extensive experience in solid tumor treatment.",
+      },
+      {
+        email: "sevda.polat@medislot.com",
+        name: "Sevda Polat",
+        phone: "+90 533 700 1080",
+        dateOfBirth: "1986-04-17",
+        gender: Gender.FEMALE,
+        address: "Karşıyaka Mah. Cemal Gürsel Cad. No:33",
+        city: "İzmir",
+        emergencyContactName: "Eda Polat",
+        emergencyContactPhone: "+90 533 700 1081",
+        emergencyContactRelation: "Sister",
+        bloodType: BloodType.O_POSITIVE,
+        nationalId: "30000000011",
+        title: "Specialist Dr.",
+        specialization: "Ophthalmology",
+        bio: "Ophthalmologist specializing in cataract surgery and refractive procedures.",
+      },
+      {
+        email: "onur.erdem@medislot.com",
+        name: "Onur Erdem",
+        phone: "+90 535 700 1090",
+        dateOfBirth: "1977-08-22",
+        gender: Gender.MALE,
+        address: "Bahçelievler Mah. 7. Cad. No:44",
+        city: "Ankara",
+        emergencyContactName: "Pelin Erdem",
+        emergencyContactPhone: "+90 535 700 1091",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.A_POSITIVE,
+        nationalId: "30000000012",
+        title: "Assoc. Prof. Dr.",
+        specialization: "Orthopedics",
+        bio: "Orthopedic surgeon with subspecialty interest in sports medicine and joint replacement.",
+      },
+      {
+        email: "gizem.cetin@medislot.com",
+        name: "Gizem Çetin",
+        phone: "+90 532 700 1100",
+        dateOfBirth: "1989-10-05",
+        gender: Gender.FEMALE,
+        address: "Moda Cad. No:58, Daire 3",
+        city: "İstanbul",
+        emergencyContactName: "Hülya Çetin",
+        emergencyContactPhone: "+90 532 700 1101",
+        emergencyContactRelation: "Mother",
+        bloodType: BloodType.AB_NEGATIVE,
+        nationalId: "30000000013",
+        title: "Specialist Dr.",
+        specialization: "Pediatrics",
+        bio: "Pediatrician dedicated to well-child care, immunizations, and developmental assessments.",
+      },
+      {
+        email: "tolga.bozkurt@medislot.com",
+        name: "Tolga Bozkurt",
+        phone: "+90 533 700 1110",
+        dateOfBirth: "1976-01-30",
+        gender: Gender.MALE,
+        address: "Konak Mah. Mithatpaşa Cad. No:117",
+        city: "İzmir",
+        emergencyContactName: "Nihan Bozkurt",
+        emergencyContactPhone: "+90 533 700 1111",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.O_POSITIVE,
+        nationalId: "30000000014",
+        title: "Assoc. Prof. Dr.",
+        specialization: "Psychiatry",
+        bio: "Psychiatrist with focus on mood disorders and cognitive behavioral therapy.",
+      },
+      {
+        email: "ece.yildiz@medislot.com",
+        name: "Ece Yıldız",
+        phone: "+90 535 700 1120",
+        dateOfBirth: "1983-06-26",
+        gender: Gender.FEMALE,
+        address: "Yenimahalle Mah. Ragıp Tüzün Cad. No:90",
+        city: "Ankara",
+        emergencyContactName: "Serkan Yıldız",
+        emergencyContactPhone: "+90 535 700 1121",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.B_POSITIVE,
+        nationalId: "30000000015",
+        title: "Specialist Dr.",
+        specialization: "Pulmonology",
+        bio: "Pulmonologist with expertise in asthma, COPD, and sleep medicine.",
+      },
+      {
+        email: "baris.acar@medislot.com",
+        name: "Barış Acar",
+        phone: "+90 532 700 1130",
+        dateOfBirth: "1980-03-11",
+        gender: Gender.MALE,
+        address: "Şişli Mah. Halaskargazi Cad. No:225",
+        city: "İstanbul",
+        emergencyContactName: "Defne Acar",
+        emergencyContactPhone: "+90 532 700 1131",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.A_POSITIVE,
+        nationalId: "30000000016",
+        title: "Assoc. Prof. Dr.",
+        specialization: "Radiology",
+        bio: "Radiologist specializing in MRI interpretation and interventional procedures.",
+      },
+      {
+        email: "nazli.karaca@medislot.com",
+        name: "Nazlı Karaca",
+        phone: "+90 533 700 1140",
+        dateOfBirth: "1985-09-19",
+        gender: Gender.FEMALE,
+        address: "Bornova Mah. Ergene Cad. No:14",
+        city: "İzmir",
+        emergencyContactName: "Mert Karaca",
+        emergencyContactPhone: "+90 533 700 1141",
+        emergencyContactRelation: "Brother",
+        bloodType: BloodType.O_NEGATIVE,
+        nationalId: "30000000017",
+        title: "Specialist Dr.",
+        specialization: "Urology",
+        bio: "Urologist with focus on minimally invasive procedures and stone disease.",
+      },
+      {
+        email: "ozan.simsek@medislot.com",
+        name: "Ozan Şimşek",
+        phone: "+90 535 700 1150",
+        dateOfBirth: "1974-11-07",
+        gender: Gender.MALE,
+        address: "Ataşehir Mah. Barbaros Mah. No:67",
+        city: "İstanbul",
+        emergencyContactName: "Tuba Şimşek",
+        emergencyContactPhone: "+90 535 700 1151",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.A_NEGATIVE,
+        nationalId: "30000000018",
+        title: "Prof. Dr.",
+        specialization: "General Surgery",
+        bio: "General surgeon with broad experience in laparoscopic and emergency surgery.",
+      },
+    ];
+
+    for (const d of additionalDoctors) {
+      const dob = new Date(d.dateOfBirth);
+      const u = await tx.user.create({
+        data: {
+          email: d.email,
+          password: hashedPassword,
+          name: d.name,
+          role: Role.DOCTOR,
+          phone: d.phone,
+          dateOfBirth: dob,
+          gender: d.gender,
+          address: d.address,
+          city: d.city,
+          country: "Türkiye",
+          emergencyContactName: d.emergencyContactName,
+          emergencyContactPhone: d.emergencyContactPhone,
+          emergencyContactRelation: d.emergencyContactRelation,
+          bloodType: d.bloodType,
+          nationalId: d.nationalId,
+        },
+      });
+      await tx.doctor.create({
+        data: {
+          userId: u.id,
+          title: d.title,
+          specialization: d.specialization,
+          bio: d.bio,
+          gender: d.gender,
+          dateOfBirth: dob,
+        },
+      });
+    }
+
     // ── 5. Create patient users ────────────────────────────────────────────
     console.log("Creating patient users...");
 
@@ -308,6 +643,150 @@ async function main(): Promise<void> {
         insurancePolicyNumber: "ANS-77-3321",
       },
     });
+
+    // ── Additional 5 patients ──────────────────────────────────────────────
+    const additionalPatients: Array<{
+      email: string;
+      name: string;
+      phone: string;
+      dateOfBirth: string;
+      gender: Gender;
+      address: string;
+      city: string;
+      emergencyContactName: string;
+      emergencyContactPhone: string;
+      emergencyContactRelation: string;
+      bloodType: BloodType;
+      allergies: string | null;
+      chronicConditions: string | null;
+      currentMedications: string | null;
+      nationalId: string;
+      insuranceProvider: string;
+      insurancePolicyNumber: string;
+    }> = [
+      {
+        email: "berna.aktas@example.com",
+        name: "Berna Aktaş",
+        phone: "+90 532 333 4455",
+        dateOfBirth: "1991-04-21",
+        gender: Gender.FEMALE,
+        address: "Caddebostan Mah. Plaj Yolu Sok. No:14",
+        city: "İstanbul",
+        emergencyContactName: "Hakan Aktaş",
+        emergencyContactPhone: "+90 532 333 4456",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.A_NEGATIVE,
+        allergies: "Sulfa drugs",
+        chronicConditions: "Hypothyroidism",
+        currentMedications: "Levothyroxine 75mcg daily",
+        nationalId: "45678901234",
+        insuranceProvider: "Axa Sigorta",
+        insurancePolicyNumber: "AXA-2026-5511",
+      },
+      {
+        email: "tugce.kose@example.com",
+        name: "Tuğçe Köse",
+        phone: "+90 533 555 6677",
+        dateOfBirth: "1996-09-14",
+        gender: Gender.FEMALE,
+        address: "Kızılay Mah. Necatibey Cad. No:62",
+        city: "Ankara",
+        emergencyContactName: "Asuman Köse",
+        emergencyContactPhone: "+90 533 555 6678",
+        emergencyContactRelation: "Mother",
+        bloodType: BloodType.O_POSITIVE,
+        allergies: null,
+        chronicConditions: null,
+        currentMedications: null,
+        nationalId: "56789012345",
+        insuranceProvider: "SGK",
+        insurancePolicyNumber: "SGK-2026-0042",
+      },
+      {
+        email: "hakan.aslan@example.com",
+        name: "Hakan Aslan",
+        phone: "+90 535 777 8899",
+        dateOfBirth: "1978-12-05",
+        gender: Gender.MALE,
+        address: "Bornova Mah. 174 Sok. No:9",
+        city: "İzmir",
+        emergencyContactName: "Yasemin Aslan",
+        emergencyContactPhone: "+90 535 777 8900",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.B_POSITIVE,
+        allergies: "Latex",
+        chronicConditions: "Hypertension",
+        currentMedications: "Amlodipine 5mg daily",
+        nationalId: "67890123456",
+        insuranceProvider: "Allianz",
+        insurancePolicyNumber: "ALZ-2026-1188",
+      },
+      {
+        email: "yusuf.gunes@example.com",
+        name: "Yusuf Güneş",
+        phone: "+90 532 999 1122",
+        dateOfBirth: "2001-05-18",
+        gender: Gender.MALE,
+        address: "Konyaaltı Mah. Atatürk Bulvarı No:22",
+        city: "Antalya",
+        emergencyContactName: "Mustafa Güneş",
+        emergencyContactPhone: "+90 532 999 1123",
+        emergencyContactRelation: "Father",
+        bloodType: BloodType.AB_POSITIVE,
+        allergies: null,
+        chronicConditions: null,
+        currentMedications: null,
+        nationalId: "78901234567",
+        insuranceProvider: "SGK",
+        insurancePolicyNumber: "SGK-2026-0078",
+      },
+      {
+        email: "irem.tan@example.com",
+        name: "İrem Tan",
+        phone: "+90 533 444 7788",
+        dateOfBirth: "1987-08-02",
+        gender: Gender.FEMALE,
+        address: "Ataşehir Mah. Bulvar Cad. No:101, Daire 11",
+        city: "İstanbul",
+        emergencyContactName: "Eren Tan",
+        emergencyContactPhone: "+90 533 444 7789",
+        emergencyContactRelation: "Spouse",
+        bloodType: BloodType.O_NEGATIVE,
+        allergies: "Shellfish",
+        chronicConditions: "Migraine",
+        currentMedications: "Sumatriptan as needed",
+        nationalId: "89012345678",
+        insuranceProvider: "Anadolu Sigorta",
+        insurancePolicyNumber: "ANS-2026-9920",
+      },
+    ];
+
+    for (const p of additionalPatients) {
+      await tx.user.create({
+        data: {
+          email: p.email,
+          password: hashedPassword,
+          name: p.name,
+          role: Role.PATIENT,
+          phone: p.phone,
+          dateOfBirth: new Date(p.dateOfBirth),
+          gender: p.gender,
+          address: p.address,
+          city: p.city,
+          country: "Türkiye",
+          emergencyContactName: p.emergencyContactName,
+          emergencyContactPhone: p.emergencyContactPhone,
+          emergencyContactRelation: p.emergencyContactRelation,
+          bloodType: p.bloodType,
+          allergies: p.allergies,
+          chronicConditions: p.chronicConditions,
+          currentMedications: p.currentMedications,
+          nationalId: p.nationalId,
+          insuranceProvider: p.insuranceProvider,
+          insurancePolicyNumber: p.insurancePolicyNumber,
+        },
+      });
+    }
 
     // ── 6. Create receptionist assignments ────────────────────────────────
     console.log("Creating receptionist assignments...");
@@ -585,20 +1064,41 @@ async function main(): Promise<void> {
 
     // ── 9. Summary ─────────────────────────────────────────────────────────
     console.log("\nSeed completed successfully!");
-    console.log("   - Created 1 admin, 2 receptionists, 3 doctors, 3 patients, 15 slots, 5 appointments, 3 assignments");
+    console.log("   - Created 1 admin, 3 receptionists, 18 doctors, 8 patients, 15 slots, 5 appointments, 3 assignments");
     console.log("\n   Admin:");
     console.log("   • admin@medislot.com          (Password: Admin@MediSlot2026!)");
     console.log("\n   Receptionists (Password: Password123!):");
     console.log("   • fatma.celik@medislot.com    → Dr. Ayşe (Cardiology), Dr. Mehmet (Dermatology)");
     console.log("   • emre.sahin@medislot.com     → Dr. Zeynep (General Practice)");
+    console.log("   • burcu.ozturk@medislot.com   (unassigned)");
     console.log("\n   Doctors (Password: Password123!):");
-    console.log("   • ayse.yilmaz@medislot.com   (Cardiology)");
+    console.log("   • ayse.yilmaz@medislot.com    (Cardiology)");
     console.log("   • mehmet.kaya@medislot.com    (Dermatology)");
-    console.log("   • zeynep.demir@medislot.com   (General Practice)");
+    console.log("   • zeynep.demir@medislot.com   (Family Medicine)");
+    console.log("   • selim.korkmaz@medislot.com  (Endocrinology)");
+    console.log("   • pinar.aydin@medislot.com    (ENT)");
+    console.log("   • murat.dogan@medislot.com    (Gastroenterology)");
+    console.log("   • elif.senturk@medislot.com   (Gynecology)");
+    console.log("   • burak.kilic@medislot.com    (Internal Medicine)");
+    console.log("   • hande.aksoy@medislot.com    (Neurology)");
+    console.log("   • cem.tekin@medislot.com      (Oncology)");
+    console.log("   • sevda.polat@medislot.com    (Ophthalmology)");
+    console.log("   • onur.erdem@medislot.com     (Orthopedics)");
+    console.log("   • gizem.cetin@medislot.com    (Pediatrics)");
+    console.log("   • tolga.bozkurt@medislot.com  (Psychiatry)");
+    console.log("   • ece.yildiz@medislot.com     (Pulmonology)");
+    console.log("   • baris.acar@medislot.com     (Radiology)");
+    console.log("   • nazli.karaca@medislot.com   (Urology)");
+    console.log("   • ozan.simsek@medislot.com    (General Surgery)");
     console.log("\n   Patients (Password: Password123!):");
     console.log("   • ali.vural@example.com");
     console.log("   • can.ozkan@example.com");
     console.log("   • deniz.arslan@example.com");
+    console.log("   • berna.aktas@example.com");
+    console.log("   • tugce.kose@example.com");
+    console.log("   • hakan.aslan@example.com");
+    console.log("   • yusuf.gunes@example.com");
+    console.log("   • irem.tan@example.com");
   });
 }
 

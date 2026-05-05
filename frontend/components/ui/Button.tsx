@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -40,6 +40,8 @@ export function Button({
       "bg-surface-raised text-text-primary border border-border-strong hover:bg-neutral-50",
     ghost:
       "bg-transparent text-text-body border border-transparent hover:bg-neutral-100 hover:text-text-primary",
+    outline:
+      "bg-transparent text-text-primary border border-border-strong hover:bg-neutral-50",
   };
 
   return (
