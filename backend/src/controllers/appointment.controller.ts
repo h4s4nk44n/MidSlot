@@ -57,7 +57,7 @@ export const getMyAppointments = async (
       return;
     }
 
-    const { page, pageSize, status, from, to } = parsed.data;
+    const { page, pageSize, status, from, to, tab } = parsed.data;
 
     // Role-based scoping: patients see their own, doctors see theirs,
     // receptionists see assigned doctors', admin sees all.
@@ -83,6 +83,34 @@ export const getMyAppointments = async (
       if (from) range.gte = new Date(from);
       if (to) range.lt = new Date(to);
       whereClause.timeSlot = { startTime: range };
+    }
+
+
+    const timeSlotFilter: any = {};
+    const now = new Date();
+
+    if (tab === "upcoming") {
+      whereClause.status = "BOOKED";
+      timeSlotFilter.startTime = { gte: now }; 
+    } else if (tab === "past") {
+      whereClause.status = { not: "CANCELLED" }; 
+      timeSlotFilter.startTime = { lt: now };    
+    } else if (tab === "cancelled") {
+      whereClause.status = "CANCELLED";
+    } else if (tab === "completed") { 
+      whereClause.status = "COMPLETED";
+    } else if (status) {
+      whereClause.status = status;
+    }
+
+    if (from || to) {
+      timeSlotFilter.startTime = timeSlotFilter.startTime || {};
+      if (from) timeSlotFilter.startTime.gte = new Date(from);
+      if (to) timeSlotFilter.startTime.lt = new Date(to);
+    }
+
+    if (Object.keys(timeSlotFilter).length > 0) {
+      whereClause.timeSlot = timeSlotFilter;
     }
 
     // COMPLETED appointments are most useful with the latest first; everything
@@ -188,6 +216,23 @@ export const createAppointment = async (
         throw new ConflictError("This slot was just booked by someone else.");
       }
 
+      const existingAppt = await tx.appointment.findFirst({
+        where: { timeSlotId: slot.id }
+      });
+
+      if (existingAppt) {
+        return tx.appointment.update({
+          where: { id: existingAppt.id },
+          data: {
+            patientId,
+            doctorId: slot.doctorId,
+            notes: notes || null,
+            status: "BOOKED"
+          }
+        });
+      }
+
+      // Eğer hiç eski kayıt yoksa normal şekilde oluştur.
       return tx.appointment.create({
         data: {
           patientId,
