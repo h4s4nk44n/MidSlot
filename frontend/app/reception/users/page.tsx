@@ -215,7 +215,6 @@ function RoleTabs({
     { id: "PATIENT", label: "Patients" },
     { id: "DOCTOR", label: "Doctors" },
     { id: "RECEPTIONIST", label: "Receptionists" },
-    { id: "ADMIN", label: "Admins" },
     { id: "ALL", label: "All" },
   ];
   return (

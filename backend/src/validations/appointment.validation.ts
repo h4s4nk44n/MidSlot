@@ -39,6 +39,7 @@ export const listMyAppointmentsQuerySchema = paginationQuerySchema.extend({
   status: z.enum(["BOOKED", "CANCELLED", "COMPLETED"]).optional(),
   from: z.string().datetime({ message: "from must be a valid ISO datetime" }).optional(),
   to: z.string().datetime({ message: "to must be a valid ISO datetime" }).optional(),
+  tab: z.enum(["upcoming", "past", "cancelled", "completed"]).optional(),
 });
 
 export type ListMyAppointmentsQuery = z.infer<typeof listMyAppointmentsQuerySchema>;
