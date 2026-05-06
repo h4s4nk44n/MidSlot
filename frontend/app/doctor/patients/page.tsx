@@ -26,16 +26,19 @@ function formatRange(startIso: string, endIso: string): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
   const sameDay = start.toDateString() === end.toDateString();
+  
   const fmt = (d: Date) =>
-    d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const day = start.toLocaleDateString([], {
+    d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    
+  const day = start.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
   });
+  
   return sameDay
     ? `${day} · ${fmt(start)} – ${fmt(end)}`
-    : `${start.toLocaleString()} – ${end.toLocaleString()}`;
+    : `${start.toLocaleString("en-US")} – ${end.toLocaleString("en-US")}`;
 }
 
 export default function DoctorPatientsPage() {

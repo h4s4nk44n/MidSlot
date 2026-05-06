@@ -13,7 +13,7 @@ const isRateLimitDisabled = () => process.env.DISABLE_RATE_LIMIT === "true";
 // Their tooling issues bursts of requests as they click around and shouldn't
 // trip the IP limiter. Invalid tokens / patient + doctor roles still fall
 // through to normal limiting, so this isn't a brute-force escape hatch.
-const STAFF_ROLES = new Set(["ADMIN", "RECEPTIONIST"]);
+const STAFF_ROLES = new Set(["ADMIN", "RECEPTIONIST", "DOCTOR"]);
 
 const isAuthenticatedStaff = (req: Request): boolean => {
   const authHeader = req.headers.authorization;
