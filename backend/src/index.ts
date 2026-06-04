@@ -18,6 +18,7 @@ import departmentRouter from "./routes/department.routes";
 import profileRouter from "./routes/profile.routes";
 import doctorPatientRouter from "./routes/doctor-patient.routes";
 import { assertRequiredEnv } from "./lib/env";
+import { startScheduler } from "./scheduler";
 
 dotenv.config();
 assertRequiredEnv();
@@ -136,6 +137,9 @@ if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
     logger.info(`MidSlot API running on http://localhost:${PORT}`);
   });
+  // MEDI-101: run the auto-cancel + reminder maintenance cycle on a fixed
+  // schedule, independent of HTTP traffic.
+  startScheduler();
 }
 
 export default app;

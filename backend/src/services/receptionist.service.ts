@@ -1,7 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { Prisma, Role, AppointmentStatus } from "../generated/prisma";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../utils/errors";
-import { autoCancelStaleAppointments } from "./doctor-patient.service";
 
 /**
  * Ensures the given receptionist (by User.id) has an active assignment to the
@@ -184,10 +183,6 @@ export const listAppointmentsForReceptionist = async (
   receptionistUserId: string,
   filters: { status?: string; doctorId?: string; date?: string; page?: number; pageSize?: number },
 ) => {
-  // Same lazy auto-cancel sweep as the patient/doctor listing — keeps the
-  // receptionist's view in sync with the doctor's "didn't start in time" rule.
-  await autoCancelStaleAppointments().catch(() => {});
-
   const assignments = await prisma.receptionistAssignment.findMany({
     where: { receptionistId: receptionistUserId },
     select: { doctorId: true },

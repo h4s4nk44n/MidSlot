@@ -1,29 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import logger from "../lib/logger";
 import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from "../utils/errors";
 import { paginate } from "../utils/pagination";
 import { listMyAppointmentsQuerySchema } from "../validations/appointment.validation";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";
-import { autoCancelStaleAppointments } from "../services/doctor-patient.service";
-
-// Module-scoped debounce for the auto-cancel sweep. The sweep is idempotent
-// and cheap, but on a busy listing endpoint it would otherwise run on every
-// request. One pass per minute is enough to keep status fresh from a user's
-// perspective.
-const SWEEP_INTERVAL_MS = 60_000;
-let lastAutoCancelSweep = 0;
-
-function maybeRunAutoCancelSweep(): void {
-  const now = Date.now();
-  if (now - lastAutoCancelSweep < SWEEP_INTERVAL_MS) return;
-  lastAutoCancelSweep = now;
-  autoCancelStaleAppointments().catch((err) => {
-    logger.warn({ err }, "[appointment.controller] auto-cancel sweep failed");
-  });
-}
 
 // --- MEDI-38: Role-Aware Listing + MEDI-50: Pagination/filters ---
 export const getMyAppointments = async (
@@ -34,11 +16,6 @@ export const getMyAppointments = async (
   try {
     const userId = (req as AuthRequest).user!.userId;
     const userRole = (req as AuthRequest).user!.role;
-
-    // Lazy auto-cancel pass: flips BOOKED → CANCELLED for any appointment
-    // the doctor never opened within 1h after the slot ended. Debounced so
-    // it runs at most once per minute across the process.
-    maybeRunAutoCancelSweep();
 
     const parsed = listMyAppointmentsQuerySchema.safeParse(req.query);
     if (!parsed.success) {

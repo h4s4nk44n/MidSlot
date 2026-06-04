@@ -14,6 +14,7 @@ import {
 } from "../controllers/admin.controller";
 import { postDepartment, removeDepartment } from "../controllers/department.controller";
 import { patchProfileByAdmin } from "../controllers/profile.controller";
+import { postRunScheduler } from "../controllers/scheduler.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
 
 const router = Router();
@@ -40,5 +41,9 @@ router.post("/departments", postDepartment);
 router.delete("/departments/:id", removeDepartment);
 
 router.get("/audit", getAuditLogs);
+
+// MEDI-101: on-demand trigger for the background maintenance cycle (auto-cancel
+// sweep + 24h reminder loop). Admin-only via the router-level authorize("ADMIN").
+router.post("/scheduler/run", postRunScheduler);
 
 export default router;
