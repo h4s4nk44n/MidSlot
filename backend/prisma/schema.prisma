@@ -154,6 +154,10 @@ model Appointment {
   /// Set when the doctor explicitly ends the session — also flips status
   /// to COMPLETED.
   endedAt    DateTime?
+  /// MEDI-99: stamped when the 24h "your appointment is tomorrow" reminder
+  /// email is sent, so the scheduler never sends a second reminder for the
+  /// same appointment.
+  reminderSentAt DateTime?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 

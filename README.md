@@ -477,9 +477,10 @@ Indexes: `doctorId`, `date`, `(doctorId, date)`.
 | `doctorNote` | String?   | Doctor's clinical note. Editable only inside `[startedAt, endedAt+10 min]`. Visible to admin/reception and the patient |
 | `startedAt`  | DateTime? | Set when doctor opens the in-person session                            |
 | `endedAt`    | DateTime? | Set when doctor closes the session — also flips status to `COMPLETED`  |
+| `reminderSentAt` | DateTime? | Stamped when the 24 h reminder email is sent — dedup guard so the scheduler never re-sends |
 | `createdAt` / `updatedAt` | DateTime | Timestamps                                                |
 
-**Auto-cancel rule:** If `startedAt` is still null **1 hour after** `slot.endTime`, the appointment is flipped to `CANCELLED` on the next debounced sweep (≤ 1 / minute, triggered from `GET /appointments/me`).
+**Auto-cancel rule:** If `startedAt` is still null **1 hour after** `slot.endTime`, the appointment is flipped to `CANCELLED` by the [background scheduler](#background-scheduler)'s auto-cancel sweep.
 
 #### **ReceptionistAssignment**
 Maps a receptionist user to a doctor they can act on behalf of.
@@ -1485,7 +1486,7 @@ curl -X POST http://localhost:3000/api/admin/scheduler/run \
 
 ### Email notifications
 
-Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `console` transport logs messages (dev + tests) and `resend` delivers via the [Resend](https://resend.com) API (`RESEND_API_KEY` + `EMAIL_FROM`). On a successful booking the patient receives a **confirmation email** with the doctor, date and time. Tests inject a fake transport, so CI never contacts a real provider.
+Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `console` transport logs messages (dev + tests) and `resend` delivers via the [Resend](https://resend.com) API (`RESEND_API_KEY` + `EMAIL_FROM`). On a successful booking the patient receives a **confirmation email** with the doctor, date and time, and the [scheduler](#background-scheduler) sends a **24 h reminder email** ~1 day before the appointment (at most once per appointment, deduped via `reminderSentAt`). Tests inject a fake transport, so CI never contacts a real provider.
 
 ---
 
