@@ -795,10 +795,8 @@ async function main(): Promise<void> {
       },
     ];
 
-    // Collect every patient record so appointments below can rotate through them.
-    const allPatientRecords = [patient1, patient2, patient3];
     for (const p of additionalPatients) {
-      const pu = await tx.user.create({
+      await tx.user.create({
         data: {
           email: p.email,
           password: hashedPassword,
@@ -822,7 +820,6 @@ async function main(): Promise<void> {
           insurancePolicyNumber: p.insurancePolicyNumber,
         },
       });
-      allPatientRecords.push(pu);
     }
 
     // ── 6. Create receptionist assignments ────────────────────────────────
@@ -1099,11 +1096,11 @@ async function main(): Promise<void> {
       },
     });
 
-    // ── 8b. Upcoming appointments for EVERY doctor — 10 each across June 10–17,
-    // 2026 (all BOOKED, so they land in each doctor's "upcoming" view + the
-    // dashboard "upcoming" panel). Built with two createMany calls (explicit
-    // slot ids) so ~360 rows don't blow the interactive-transaction timeout.
-    console.log("Seeding June 10–17, 2026 upcoming appointments for every doctor...");
+    // ── 8b. Free / bookable slots for EVERY doctor — 10 each across June 10–17,
+    // 2026 (isBooked=false), so patients can actually book these doctors and the
+    // dashboard "available slots" stat is non-zero. One createMany keeps the
+    // ~180 inserts from blowing the interactive-transaction timeout.
+    console.log("Seeding June 10–17, 2026 free/bookable slots for every doctor...");
     const JUNE = 5; // month index (0 = January)
     const PER_DOCTOR = 10;
     const bulkSlots: Array<{
@@ -1114,46 +1111,29 @@ async function main(): Promise<void> {
       endTime: Date;
       isBooked: boolean;
     }> = [];
-    const bulkAppointments: Array<{
-      patientId: string;
-      doctorId: string;
-      timeSlotId: string;
-      status: AppointmentStatus;
-      notes: string;
-    }> = [];
     for (let di = 0; di < allDoctorRecords.length; di++) {
       const doc = allDoctorRecords[di];
       for (let i = 0; i < PER_DOCTOR; i++) {
         const day = 10 + (i % 8); // June 10..17
         const hour = 9 + (i % 7); // 09:00..15:00
-        const slotId = randomUUID();
-        const patient = allPatientRecords[(di * PER_DOCTOR + i) % allPatientRecords.length];
         bulkSlots.push({
-          id: slotId,
+          id: randomUUID(),
           doctorId: doc.id,
           date: new Date(2026, JUNE, day),
           startTime: new Date(2026, JUNE, day, hour, 0, 0, 0),
           endTime: new Date(2026, JUNE, day, hour, 30, 0, 0),
-          isBooked: true,
-        });
-        bulkAppointments.push({
-          patientId: patient.id,
-          doctorId: doc.id,
-          timeSlotId: slotId,
-          status: AppointmentStatus.BOOKED,
-          notes: "Scheduled consultation.",
+          isBooked: false,
         });
       }
     }
     await tx.timeSlot.createMany({ data: bulkSlots });
-    await tx.appointment.createMany({ data: bulkAppointments });
     console.log(
-      `   - Created ${bulkAppointments.length} upcoming appointments (${PER_DOCTOR} each) for ${allDoctorRecords.length} doctors`,
+      `   - Created ${bulkSlots.length} free/bookable slots (${PER_DOCTOR} each) for ${allDoctorRecords.length} doctors`,
     );
 
     // ── 9. Summary ─────────────────────────────────────────────────────────
     console.log("\nSeed completed successfully!");
-    console.log("   - Created 1 admin, 3 receptionists, 18 doctors, 8 patients, plus 10 upcoming appointments per doctor (Jun 10-17, 2026)");
+    console.log("   - Created 1 admin, 3 receptionists, 18 doctors, 8 patients, plus 10 free/bookable slots per doctor (Jun 10-17, 2026)");
     // HIGH-014: never print plaintext passwords — they leak into log files,
     // CI artifacts, and container output. Operators receive credentials via
     // SEED_*_PASSWORD env values which they themselves provided.
