@@ -69,10 +69,7 @@ export const getPatientProfile = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const profile = await getPatientProfileForDoctor(
-      req.user!.userId,
-      req.params.id as string,
-    );
+    const profile = await getPatientProfileForDoctor(req.user!.userId, req.params.id as string);
     res.status(200).json(profile);
   } catch (error) {
     next(error);

@@ -128,7 +128,10 @@ export function log(input: AuditLogInput): void {
         },
       });
     } catch (err) {
-      logger.error({ action: input.action, actorId: input.actorId, err }, "[audit] failed to write log entry");
+      logger.error(
+        { action: input.action, actorId: input.actorId, err },
+        "[audit] failed to write log entry",
+      );
     }
   });
 }

@@ -6,7 +6,6 @@ import { hashRefreshToken } from "../utils/tokenHelpers";
 // The refresh flow doesn't exceed the 5 limit, but let's stay on the safe side
 process.env.DISABLE_RATE_LIMIT = "true";
 
-// eslint-disable-next-line import/first
 import app from "../index";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
@@ -63,9 +62,7 @@ describe("Refresh token rotation, logout & reuse detection", () => {
   // ────────────────────────────────────────────────────────────────────────
   describe("Login (MEDI-77 — cookie, never in body)", () => {
     it("sets refresh token as httpOnly cookie and never in JSON body", async () => {
-      const res = await request(app)
-        .post("/api/auth/login")
-        .send({ email: testEmail, password });
+      const res = await request(app).post("/api/auth/login").send({ email: testEmail, password });
 
       expect(res.status).toBe(200);
       expect(res.body.token).toBeDefined();
@@ -85,9 +82,7 @@ describe("Refresh token rotation, logout & reuse detection", () => {
     });
 
     it("stores refresh token as a hash, not raw, in the database", async () => {
-      const res = await request(app)
-        .post("/api/auth/login")
-        .send({ email: testEmail, password });
+      const res = await request(app).post("/api/auth/login").send({ email: testEmail, password });
 
       const cookie = extractRefreshCookie(res);
       const rawToken = extractRawToken(cookie);
@@ -121,9 +116,7 @@ describe("Refresh token rotation, logout & reuse detection", () => {
       const oldCookie = extractRefreshCookie(loginRes);
       const oldRaw = extractRawToken(oldCookie)!;
 
-      const refreshRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", oldCookie!);
+      const refreshRes = await request(app).post("/api/auth/refresh").set("Cookie", oldCookie!);
 
       expect(refreshRes.status).toBe(200);
       expect(refreshRes.body.token).toBeDefined();
@@ -176,9 +169,7 @@ describe("Refresh token rotation, logout & reuse detection", () => {
       const cookie = extractRefreshCookie(loginRes);
       const rawToken = extractRawToken(cookie)!;
 
-      const logoutRes = await request(app)
-        .post("/api/auth/logout")
-        .set("Cookie", cookie!);
+      const logoutRes = await request(app).post("/api/auth/logout").set("Cookie", cookie!);
 
       expect(logoutRes.status).toBe(204);
 
@@ -230,17 +221,13 @@ describe("Refresh token rotation, logout & reuse detection", () => {
       const rawA = extractRawToken(cookieA)!;
 
       // Rotate: A → B (A revoked, B active)
-      const rotateRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", cookieA!);
+      const rotateRes = await request(app).post("/api/auth/refresh").set("Cookie", cookieA!);
       expect(rotateRes.status).toBe(200);
       const cookieB = extractRefreshCookie(rotateRes);
       const rawB = extractRawToken(cookieB)!;
 
       // Reuse A (theft signal!) → 401, family killed
-      const reuseRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", cookieA!);
+      const reuseRes = await request(app).post("/api/auth/refresh").set("Cookie", cookieA!);
       expect(reuseRes.status).toBe(401);
       expect(reuseRes.body.error).toMatch(/reuse/i);
 
@@ -280,9 +267,7 @@ describe("Refresh token rotation, logout & reuse detection", () => {
       expect(stored!.revokedAt).toBeNull();
 
       // Should be able to refresh with this fresh token
-      const refreshRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", cookie!);
+      const refreshRes = await request(app).post("/api/auth/refresh").set("Cookie", cookie!);
       expect(refreshRes.status).toBe(200);
     });
   });

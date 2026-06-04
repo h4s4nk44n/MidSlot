@@ -13,18 +13,10 @@ import { z } from "zod";
 const PHONE_REGEX = /^\+?[0-9 ()-]{6,20}$/;
 
 const optionalNullableString = (max: number) =>
-  z
-    .union([
-      z.string().trim().max(max),
-      z.null(),
-    ])
-    .optional();
+  z.union([z.string().trim().max(max), z.null()]).optional();
 
 const optionalNullablePhone = z
-  .union([
-    z.string().trim().regex(PHONE_REGEX, "Invalid phone number format"),
-    z.null(),
-  ])
+  .union([z.string().trim().regex(PHONE_REGEX, "Invalid phone number format"), z.null()])
   .optional();
 
 export const BLOOD_TYPES = [
@@ -44,9 +36,7 @@ export const PROFILE_GENDERS = ["MALE", "FEMALE", "OTHER", "UNDISCLOSED"] as con
 export const updateProfileSchema = z
   .object({
     phone: optionalNullablePhone,
-    dateOfBirth: z
-      .union([z.string().datetime(), z.string().date(), z.null()])
-      .optional(),
+    dateOfBirth: z.union([z.string().datetime(), z.string().date(), z.null()]).optional(),
     gender: z.enum(PROFILE_GENDERS).optional(),
     address: optionalNullableString(200),
     city: optionalNullableString(80),

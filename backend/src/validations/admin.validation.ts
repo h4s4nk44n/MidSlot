@@ -35,9 +35,7 @@ export const updateAdminUserSchema = z
     specialization: z.string().trim().min(2).max(80).optional(),
     gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"]).optional(),
     // ISO date or YYYY-MM-DD; null clears the value back to "unknown".
-    dateOfBirth: z
-      .union([z.string().datetime(), z.string().date(), z.null()])
-      .optional(),
+    dateOfBirth: z.union([z.string().datetime(), z.string().date(), z.null()]).optional(),
   })
   .refine(
     (v) =>

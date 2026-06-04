@@ -2,12 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import logger from "../lib/logger";
-import {
-  NotFoundError,
-  BadRequestError,
-  ForbiddenError,
-  ConflictError
-} from "../utils/errors";
+import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from "../utils/errors";
 import { paginate } from "../utils/pagination";
 import { listMyAppointmentsQuerySchema } from "../validations/appointment.validation";
 import audit from "../utils/audit";
@@ -85,19 +80,18 @@ export const getMyAppointments = async (
       whereClause.timeSlot = { startTime: range };
     }
 
-
     const timeSlotFilter: any = {};
     const now = new Date();
 
     if (tab === "upcoming") {
       whereClause.status = "BOOKED";
-      timeSlotFilter.startTime = { gte: now }; 
+      timeSlotFilter.startTime = { gte: now };
     } else if (tab === "past") {
-      whereClause.status = { not: "CANCELLED" }; 
-      timeSlotFilter.startTime = { lt: now };    
+      whereClause.status = { not: "CANCELLED" };
+      timeSlotFilter.startTime = { lt: now };
     } else if (tab === "cancelled") {
       whereClause.status = "CANCELLED";
-    } else if (tab === "completed") { 
+    } else if (tab === "completed") {
       whereClause.status = "COMPLETED";
     } else if (status) {
       whereClause.status = status;
@@ -193,11 +187,12 @@ export const createAppointment = async (
     });
 
     if (!slot) throw new NotFoundError("Time slot not found.");
-    if (new Date(slot.startTime) <= new Date()) throw new BadRequestError("Cannot book past slots.");
+    if (new Date(slot.startTime) <= new Date())
+      throw new BadRequestError("Cannot book past slots.");
 
     if (userRole === "RECEPTIONIST") {
       const assignment = await prisma.receptionistAssignment.findUnique({
-        where: { receptionistId_doctorId: { receptionistId: userId, doctorId: slot.doctorId } }
+        where: { receptionistId_doctorId: { receptionistId: userId, doctorId: slot.doctorId } },
       });
       if (!assignment) throw new ForbiddenError("You are not assigned to this doctor.");
     }
@@ -217,7 +212,7 @@ export const createAppointment = async (
       }
 
       const existingAppt = await tx.appointment.findFirst({
-        where: { timeSlotId: slot.id }
+        where: { timeSlotId: slot.id },
       });
 
       if (existingAppt) {
@@ -227,8 +222,8 @@ export const createAppointment = async (
             patientId,
             doctorId: slot.doctorId,
             notes: notes || null,
-            status: "BOOKED"
-          }
+            status: "BOOKED",
+          },
         });
       }
 
@@ -285,7 +280,9 @@ export const cancelAppointment = async (
     if (!appointment) throw new NotFoundError("Appointment not found.");
 
     if (appointment.status === "CANCELLED" || appointment.status === "COMPLETED") {
-      throw new ConflictError(`Cannot cancel an appointment that is already ${appointment.status}.`);
+      throw new ConflictError(
+        `Cannot cancel an appointment that is already ${appointment.status}.`,
+      );
     }
 
     let isAuthorized = false;
@@ -295,12 +292,15 @@ export const cancelAppointment = async (
       isAuthorized = true;
     } else if (userRole === "RECEPTIONIST") {
       const assignment = await prisma.receptionistAssignment.findUnique({
-        where: { receptionistId_doctorId: { receptionistId: userId, doctorId: appointment.doctorId } }
+        where: {
+          receptionistId_doctorId: { receptionistId: userId, doctorId: appointment.doctorId },
+        },
       });
       if (assignment) isAuthorized = true;
     }
 
-    if (!isAuthorized) throw new ForbiddenError("You are not authorized to cancel this appointment.");
+    if (!isAuthorized)
+      throw new ForbiddenError("You are not authorized to cancel this appointment.");
 
     const updated = await prisma.$transaction(async (tx) => {
       const updatedAppt = await tx.appointment.update({
@@ -355,7 +355,9 @@ export const completeAppointment = async (
     if (!appointment) throw new NotFoundError("Appointment not found.");
 
     if (appointment.status === "CANCELLED" || appointment.status === "COMPLETED") {
-      throw new ConflictError(`Cannot complete an appointment that is already ${appointment.status}.`);
+      throw new ConflictError(
+        `Cannot complete an appointment that is already ${appointment.status}.`,
+      );
     }
 
     if (new Date() < new Date(appointment.timeSlot.endTime)) {
@@ -367,12 +369,17 @@ export const completeAppointment = async (
       isAuthorized = true;
     } else if (userRole === "RECEPTIONIST") {
       const assignment = await prisma.receptionistAssignment.findUnique({
-        where: { receptionistId_doctorId: { receptionistId: userId, doctorId: appointment.doctorId } }
+        where: {
+          receptionistId_doctorId: { receptionistId: userId, doctorId: appointment.doctorId },
+        },
       });
       if (assignment) isAuthorized = true;
     }
 
-    if (!isAuthorized) throw new ForbiddenError("Only the assigned doctor or receptionist can complete this appointment.");
+    if (!isAuthorized)
+      throw new ForbiddenError(
+        "Only the assigned doctor or receptionist can complete this appointment.",
+      );
 
     const updated = await prisma.appointment.update({
       where: { id },

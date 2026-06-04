@@ -4,7 +4,6 @@ import { prisma } from "../lib/prisma";
 
 process.env.DISABLE_RATE_LIMIT = "true";
 
-// eslint-disable-next-line import/first
 import app from "../index";
 
 const flushAudit = async () => {
@@ -45,9 +44,7 @@ describe("Audit log emission across flows", () => {
 
   describe("Login flow", () => {
     it("emits login.success on successful login", async () => {
-      const res = await request(app)
-        .post("/api/auth/login")
-        .send({ email: testEmail, password });
+      const res = await request(app).post("/api/auth/login").send({ email: testEmail, password });
       expect(res.status).toBe(200);
 
       await flushAudit();

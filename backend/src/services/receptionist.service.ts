@@ -278,10 +278,7 @@ export const searchPatients = async (q: string, limit: number) => {
   });
 };
 
-export const listSlotsForDoctor = async (
-  receptionistUserId: string,
-  doctorId: string,
-) => {
+export const listSlotsForDoctor = async (receptionistUserId: string, doctorId: string) => {
   await assertReceptionistAssignedToDoctor(receptionistUserId, doctorId);
 
   return prisma.timeSlot.findMany({

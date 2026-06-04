@@ -174,9 +174,7 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
 
   // Lockout check BEFORE password verification
   if (user.lockedUntil && user.lockedUntil > new Date()) {
-    const retryAfterSeconds = Math.ceil(
-      (user.lockedUntil.getTime() - Date.now()) / 1000,
-    );
+    const retryAfterSeconds = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000);
     audit.log({
       actorId: user.id,
       action: AuditAction.LOGIN_LOCKED,
@@ -259,7 +257,7 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
     userAgent: context.userAgent,
     ip: context.ip,
   });
-  
+
   audit.log({
     actorId: user.id,
     action: AuditAction.LOGIN_SUCCESS,
@@ -288,10 +286,7 @@ export const loginUser = async (data: LoginInput, context: LoginContext = {}) =>
 
 // ─── Refresh (with rotation + reuse detection) ──────────────────────────────
 
-export const rotateRefreshToken = async (
-  presentedRawToken: string,
-  context: LoginContext = {},
-) => {
+export const rotateRefreshToken = async (presentedRawToken: string, context: LoginContext = {}) => {
   const tokenHash = hashRefreshToken(presentedRawToken);
 
   const stored = await prisma.refreshToken.findUnique({

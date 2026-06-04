@@ -16,9 +16,7 @@ const AUTO_CANCEL_AFTER_END_MS = 60 * 60 * 1000; // 1 hour
  * early hours of their local day.
  */
 const CLINIC_TIMEZONE =
-  process.env.CLINIC_TIMEZONE ||
-  Intl.DateTimeFormat().resolvedOptions().timeZone ||
-  "UTC";
+  process.env.CLINIC_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 /** Formats a Date as a YYYY-MM-DD string in the clinic timezone. */
 function clinicDayKey(date: Date): string {
@@ -175,10 +173,7 @@ export async function assertActiveAppointment(
 
 /** Patient profile read-only — only callable when {@link assertActiveAppointment} passes.
  *  Insurance fields are excluded; nationalId is included. */
-export async function getPatientProfileForDoctor(
-  doctorUserId: string,
-  patientUserId: string,
-) {
+export async function getPatientProfileForDoctor(doctorUserId: string, patientUserId: string) {
   await assertActiveAppointment(doctorUserId, patientUserId);
   const profile = await prisma.user.findUnique({
     where: { id: patientUserId },
@@ -230,9 +225,7 @@ export async function setDoctorNoteForAppointment(
     throw new ForbiddenError("You can only edit notes on your own appointments.");
   }
   if (!appt.startedAt) {
-    throw new ForbiddenError(
-      "Start the appointment before writing notes.",
-    );
+    throw new ForbiddenError("Start the appointment before writing notes.");
   }
   const referenceEnd = appt.endedAt ?? appt.timeSlot.endTime;
   const windowEnd = new Date(referenceEnd.getTime() + ACTIVE_WINDOW_BUFFER_MS);
@@ -295,10 +288,7 @@ export async function autoCancelStaleAppointments(): Promise<number> {
  * Refuses if more than 1 hour has passed since the slot ended (the appointment
  * is past the auto-cancel cutoff).
  */
-export async function startAppointmentSession(
-  doctorUserId: string,
-  appointmentId: string,
-) {
+export async function startAppointmentSession(doctorUserId: string, appointmentId: string) {
   const doctor = await resolveDoctor(doctorUserId);
 
   const appt = await prisma.appointment.findUnique({
@@ -323,9 +313,7 @@ export async function startAppointmentSession(
     const slotDayKey = clinicDayKey(appt.timeSlot.startTime);
     const todayKey = clinicDayKey(new Date());
     if (slotDayKey !== todayKey) {
-      throw new ForbiddenError(
-        "An appointment can only be started on the day it is scheduled.",
-      );
+      throw new ForbiddenError("An appointment can only be started on the day it is scheduled.");
     }
   }
 
@@ -353,10 +341,7 @@ export async function startAppointmentSession(
 /**
  * End an in-progress session. Sets `endedAt` and flips status to COMPLETED.
  */
-export async function endAppointmentSession(
-  doctorUserId: string,
-  appointmentId: string,
-) {
+export async function endAppointmentSession(doctorUserId: string, appointmentId: string) {
   const doctor = await resolveDoctor(doctorUserId);
 
   const appt = await prisma.appointment.findUnique({
@@ -387,10 +372,7 @@ export async function endAppointmentSession(
  * slot.endTime+10min). Before start, only the doctor's own appointment
  * metadata is returned (no patient profile).
  */
-export async function getSessionForDoctor(
-  doctorUserId: string,
-  appointmentId: string,
-) {
+export async function getSessionForDoctor(doctorUserId: string, appointmentId: string) {
   const doctor = await resolveDoctor(doctorUserId);
 
   const appt = await prisma.appointment.findUnique({

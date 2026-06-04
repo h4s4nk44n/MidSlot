@@ -39,9 +39,7 @@ describe("paginate()", () => {
   it("computes skip/take from page and pageSize", async () => {
     const model = makeModel([{ id: "a" }], 47);
     await paginate(model, { page: 3, pageSize: 10 });
-    expect(model.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 20, take: 10 }),
-    );
+    expect(model.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20, take: 10 }));
   });
 
   it("returns structured envelope with totalPages", async () => {
