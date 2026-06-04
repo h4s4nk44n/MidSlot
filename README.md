@@ -879,6 +879,17 @@ The backend `test:coverage` script runs the suite with coverage and **fails the 
 
 Coverage is scoped to application code (the generated Prisma client, tests and type declarations are excluded). The full HTML + lcov report is uploaded as the **`backend-coverage`** CI artifact on every run (including failures). Raise the thresholds as coverage improves.
 
+### End-to-end tests (Playwright)
+
+A separate [Playwright suite](e2e/) drives the **register → book → cancel** patient journey against the full docker compose stack (postgres + backend + frontend). It runs on a **schedule** (daily) and on manual dispatch via the [E2E workflow](.github/workflows/e2e.yml) — **not** as a required merge gate, so e2e flakiness can't block PRs. Each test retries once; the HTML report is uploaded as the **`playwright-report`** artifact.
+
+```bash
+# Run locally against a running stack (docker compose up):
+cd e2e && npm ci && npx playwright install --with-deps chromium && npx playwright test
+```
+
+> The e2e stack runs with `NODE_ENV=development` so the auth cookie is sent over plain-HTTP localhost (production forces `Secure` + `SameSite=Strict`).
+
 ### Branch protection (manual step)
 
 Requiring a green CI run before merging into `main` is a **repository setting**

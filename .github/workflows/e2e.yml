@@ -1,0 +1,85 @@
+name: E2E (Playwright)
+
+# MEDI-104: runs the register / book / cancel journeys against the full docker
+# compose stack. Intentionally NOT a merge gate — it runs on a schedule (and on
+# manual dispatch) so e2e flakiness can't block PRs.
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright e2e (docker compose)
+    runs-on: ubuntu-latest
+
+    env:
+      # NODE_ENV=development so the backend issues non-Secure, SameSite=Lax
+      # cookies the browser will send over plain HTTP localhost (production
+      # forces Secure + SameSite=Strict, which would break the flow over HTTP).
+      NODE_ENV: development
+      # Throwaway secret for the ephemeral stack — never used in real deploys.
+      JWT_SECRET: e2e-ci-jwt-secret-not-real-min-32-characters-long
+      # Seed runs with dev-default passwords (Password123!) under NODE_ENV != production.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start the stack (postgres + backend + frontend)
+        run: docker compose up -d --build
+
+      - name: Wait for the backend to be healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              echo "backend ready"; exit 0
+            fi
+            sleep 5
+          done
+          echo "backend did not become healthy in time"; docker compose logs backend; exit 1
+
+      - name: Wait for the frontend to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3001 > /dev/null; then
+              echo "frontend ready"; exit 0
+            fi
+            sleep 5
+          done
+          echo "frontend did not become ready in time"; docker compose logs frontend; exit 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
