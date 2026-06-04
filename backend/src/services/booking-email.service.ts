@@ -1,36 +1,13 @@
 import { prisma } from "../lib/prisma";
 import logger from "../lib/logger";
 import { getEmailProvider, type EmailMessage } from "../lib/email";
+import { escapeHtml, formatInClinicTz } from "../lib/email-format";
 
 export interface BookingEmailParams {
   patientName: string;
   doctorName: string;
   specialization?: string | null;
   startTime: Date;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
-  );
-}
-
-function formatInClinicTz(date: Date): { date: string; time: string } {
-  const timeZone = process.env.CLINIC_TIMEZONE || undefined;
-  const dateStr = new Intl.DateTimeFormat("en-GB", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone,
-  }).format(date);
-  const timeStr = new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone,
-  }).format(date);
-  return { date: dateStr, time: timeStr };
 }
 
 /**
