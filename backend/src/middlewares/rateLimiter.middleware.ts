@@ -5,6 +5,13 @@ import jwt from "jsonwebtoken";
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const RETRY_AFTER_SECONDS = 15 * 60; // 900 s
 
+// Per-IP request caps per window. Defaults are generous so local/dev demos
+// don't trip the limiter constantly; override any of them via env (tighten for
+// production, or pin low in tests). Each falls back to its default if unset.
+const AUTH_MAX = parseInt(process.env.AUTH_RATE_LIMIT_MAX || "50", 10); // /auth/login + /auth/register
+const API_MAX = parseInt(process.env.API_RATE_LIMIT_MAX || "1000", 10); // global /api/*
+const MODERATE_MAX = parseInt(process.env.MODERATE_RATE_LIMIT_MAX || "300", 10); // general endpoints
+
 // Disable rate limiting per-test when needed (e.g. account lockout tests
 // that intentionally hammer /auth/login more than 5x).
 const isRateLimitDisabled = () => process.env.DISABLE_RATE_LIMIT === "true";
@@ -40,10 +47,10 @@ function make429Handler(message: string): Options["handler"] {
   };
 }
 
-// Strict limiter for /auth/login and /auth/register — 5 req / 15 min per IP
+// Strict limiter for /auth/login and /auth/register — AUTH_RATE_LIMIT_MAX / 15 min per IP (default 50)
 export const authLimiter = rateLimit({
   windowMs: WINDOW_MS,
-  max: 5,
+  max: AUTH_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false,
@@ -52,10 +59,10 @@ export const authLimiter = rateLimit({
   handler: make429Handler("Too many login/register attempts, please try again after 15 minutes."),
 });
 
-// Global limiter for /api/* — 100 req / 15 min per IP; /api/health is exempt
+// Global limiter for /api/* — API_RATE_LIMIT_MAX / 15 min per IP (default 1000); /api/health is exempt
 export const apiLimiter = rateLimit({
   windowMs: WINDOW_MS,
-  max: 100,
+  max: API_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   // Mounted at /api so req.path is relative (e.g. /health, not /api/health)
@@ -64,10 +71,10 @@ export const apiLimiter = rateLimit({
   handler: make429Handler("Too many requests from this IP, please try again later."),
 });
 
-// Moderate limiter for general endpoints — 30 req / 15 min per IP
+// Moderate limiter for general endpoints — MODERATE_RATE_LIMIT_MAX / 15 min per IP (default 300)
 export const moderateLimiter = rateLimit({
   windowMs: WINDOW_MS,
-  max: 30,
+  max: MODERATE_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => isRateLimitDisabled(),

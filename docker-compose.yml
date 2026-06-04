@@ -58,6 +58,10 @@ services:
       SMTP_PASS: "${SMTP_PASS:-}"
       # MEDI-100 password reset links point at the frontend (host-side URL).
       APP_BASE_URL: "${APP_BASE_URL:-http://localhost:3001}"
+      # Per-IP rate-limit caps / 15 min (raised for dev demos; tighten for prod).
+      AUTH_RATE_LIMIT_MAX: "${AUTH_RATE_LIMIT_MAX:-50}"
+      API_RATE_LIMIT_MAX: "${API_RATE_LIMIT_MAX:-1000}"
+      MODERATE_RATE_LIMIT_MAX: "${MODERATE_RATE_LIMIT_MAX:-300}"
     ports:
       - "${BACKEND_HOST_PORT:-3000}:3000"
     healthcheck:
