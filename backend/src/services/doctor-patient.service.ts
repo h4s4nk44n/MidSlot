@@ -185,7 +185,7 @@ export async function getPatientProfileForDoctor(doctorUserId: string, patientUs
 
 /**
  * The narrow set of medical fields a doctor may edit *without* requiring a
- * patient code. Anything else has to go through the SMS verification flow.
+ * patient code. Anything else has to go through the email verification flow.
  */
 export const DOCTOR_MEDICAL_FIELDS = [
   "bloodType",

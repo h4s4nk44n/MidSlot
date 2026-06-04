@@ -13,7 +13,6 @@ export const AuditAction = {
   LOGIN_LOCKED: "login.locked",
   LOGOUT: "auth.logout",
   TOKEN_REUSE_DETECTED: "auth.token_reuse_detected",
-  SMS_CODE_SEND: "sms.code_send",
 
   // Appointments
   APPOINTMENT_BOOK: "appointment.book",
@@ -53,6 +52,7 @@ export const AuditAction = {
 
   // Verification codes (staff-initiated profile edits requiring patient confirmation)
   VERIFICATION_CODE_REQUEST: "verification.request",
+  VERIFICATION_CODE_SEND: "verification.code_send",
   VERIFICATION_CODE_VERIFY_SUCCESS: "verification.verify_success",
   VERIFICATION_CODE_VERIFY_FAILED: "verification.verify_failed",
 } as const;

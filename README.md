@@ -42,7 +42,7 @@ MediSlot is a backend API that streamlines medical appointment scheduling for an
 
 - **Patients** to browse doctors by specialization, book/cancel appointments, and maintain a rich medical profile (allergies, chronic conditions, medications, blood type, insurance, emergency contact, …)
 - **Doctors** to manage their availability, see today's roster, run an in-person session lifecycle (`start → end`), record clinical notes during the session window, and update patient medical fields
-- **Receptionists** to book/cancel/manage appointments on behalf of patients for the doctors they are assigned to, search patients by name/email, and request verified profile changes via SMS code
+- **Receptionists** to book/cancel/manage appointments on behalf of patients for the doctors they are assigned to, search patients by name/email, and request verified profile changes via an emailed code
 - **Admins** to manage users (CRUD, activate/deactivate, role transitions), curate the department dictionary, manage receptionist assignments, browse the immutable audit log, and edit user profiles directly or via the verified change flow
 - **Operators** to monitor liveness via `/api/health` and run the included end-to-end smoke test
 
@@ -59,7 +59,7 @@ The platform is built as a RESTful API with TypeScript, Express 5, Prisma 6, and
 - ✅ Receptionist on-behalf workflow: book / cancel / manage slots only for assigned doctors
 - ✅ Doctor in-person session lifecycle: `startedAt` / `endedAt`, clinical notes editable only inside `[start, end + 10 min]`
 - ✅ Auto-cancellation sweep: `BOOKED` flips to `CANCELLED` if the doctor never opens a session within 1 h after the slot's `endTime`
-- ✅ Staff-initiated profile changes verified by 6-digit SMS-style code (bcrypt-hashed, single-use, max 5 attempts, stale-payload protection)
+- ✅ Staff-initiated profile changes verified by a 6-digit emailed code (bcrypt-hashed, single-use, max 5 attempts, stale-payload protection)
 - ✅ Rich patient medical profile (phone, address, emergency contact, blood type, allergies, chronic conditions, current medications, insurance, national ID)
 - ✅ Curated **Department** dictionary with admin CRUD
 - ✅ Doctor profile fields: title, specialization, bio, gender, date of birth (used for patient filters)
@@ -528,7 +528,7 @@ One-time verification codes used by the staff-initiated profile-change flow.
 | Field                    | Type      | Description                                                |
 | ------------------------ | --------- | ---------------------------------------------------------- |
 | `id`                     | UUID      | Primary key                                                |
-| `targetUserId`           | UUID      | The patient whose profile will be modified (SMS recipient) |
+| `targetUserId`           | UUID      | The patient whose profile will be modified (code recipient) |
 | `requesterId`            | UUID      | The staff member who initiated the change                  |
 | `purpose`                | String    | `profile_edit_by_receptionist` \| `profile_edit_by_doctor` |
 | `codeHash`               | String    | Bcrypt hash of the 6-digit code                            |
@@ -1378,10 +1378,10 @@ Doctor updates patient medical fields (`allergies`, `chronicConditions`, `curren
 
 ### Profile-change verification flow (doctor-initiated)
 
-For sensitive non-medical edits (e.g. address, phone, emergency contact) the doctor must first **request a one-time code** that the patient receives via SMS, and then **verify** it before the change is applied:
+For sensitive non-medical edits (e.g. address, phone, emergency contact) the doctor must first **request a one-time code** that the patient receives via email, and then **verify** it before the change is applied:
 
 - **POST `/doctor/patients/:id/profile-changes/request`**
-  Body: pending change-set. Generates a 6-digit code (bcrypt-hashed in DB), records `targetUpdatedAtSnapshot`, and "sends" it to the patient. Audited.
+  Body: pending change-set. Generates a 6-digit code (bcrypt-hashed in DB), records `targetUpdatedAtSnapshot`, and emails it to the patient. Audited.
 - **POST `/doctor/profile-changes/:requestId/verify`**
   Body: `{ "code": "123456" }`. Increments `attempts`; rejects after `maxAttempts` (5) or expiry; rejects if patient profile was modified since issue (stale payload). Applies the change atomically and marks the code consumed.
 
@@ -1415,7 +1415,7 @@ All endpoints below require `Authorization: Bearer <token>` with a `RECEPTIONIST
 
 | Endpoint                                                            | Verb  | Description |
 | ------------------------------------------------------------------- | ----- | ----------- |
-| `/receptionist/users/:id/profile-changes/request`                   | POST  | Stage a profile change set, send 6-digit code to patient |
+| `/receptionist/users/:id/profile-changes/request`                   | POST  | Stage a profile change set, email a 6-digit code to the patient |
 | `/receptionist/profile-changes/:requestId/verify`                   | POST  | Verify the code and apply the staged changes (single-use, max 5 attempts, stale-payload rejected) |
 
 ### Doctor management

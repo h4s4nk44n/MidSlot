@@ -5,8 +5,8 @@
  * /doctor/patients. The actor-mode prop controls how saves are submitted:
  *
  *   admin       — direct PATCH /admin/users/:id/profile, every field editable
- *   receptionist — every field editable, save requires SMS code via verify modal
- *   doctor      — medical fields direct, non-medical require SMS code
+ *   receptionist — every field editable, save requires email code via verify modal
+ *   doctor      — medical fields direct, non-medical require email code
  *
  * All three modes share the same Section/Field layout and dirty-diff logic.
  */
@@ -37,7 +37,7 @@ const BLOOD_TYPE_OPTIONS: { value: BloodType; label: string }[] = [
   { value: "O_NEGATIVE", label: "O-" },
 ];
 
-/** Subset of fields a doctor can edit without an SMS code. */
+/** Subset of fields a doctor can edit without a verification code. */
 const DOCTOR_MEDICAL_FIELDS = [
   "bloodType",
   "allergies",
@@ -138,7 +138,7 @@ function splitMedical(patch: Record<string, string | null>) {
 interface CodeChallenge {
   requestId: string;
   expiresAt: string;
-  phoneHint: string;
+  emailHint: string;
   provider: string;
   pendingForm: FormState;
 }
@@ -248,11 +248,11 @@ export function UserProfileDrawer({
         const res = await apiPost<{
           requestId: string;
           expiresAt: string;
-          phoneHint: string;
+          emailHint: string;
           provider: string;
         }>(`/receptionist/users/${userId}/profile-changes/request`, patch);
         setChallenge({ ...res, pendingForm: form });
-        toast.success(`Code sent (${res.provider}). Ask the patient for the 6-digit code.`);
+        toast.success(`Code emailed (${res.provider}). Ask the patient for the 6-digit code.`);
       } else {
         // doctor
         const { medical, other } = splitMedical(patch);
@@ -277,7 +277,7 @@ export function UserProfileDrawer({
           const res = await apiPost<{
             requestId: string;
             expiresAt: string;
-            phoneHint: string;
+            emailHint: string;
             provider: string;
           }>(`/doctor/patients/${userId}/profile-changes/request`, other);
           setChallenge({ ...res, pendingForm: form });
@@ -338,7 +338,7 @@ export function UserProfileDrawer({
     if ((DOCTOR_MEDICAL_FIELDS as readonly string[]).includes(field)) {
       return undefined;
     }
-    return "SMS code required";
+    return "email code required";
   }
 
   return (
@@ -406,10 +406,10 @@ export function UserProfileDrawer({
                 {actor !== "admin" && (
                   <div className="rounded-md border border-info-border bg-info-bg px-3 py-2 text-xs text-info-fg">
                     {actor === "receptionist" && (
-                      <>Edits are confirmed by a 6-digit code sent to the patient&apos;s phone.</>
+                      <>Edits are confirmed by a 6-digit code emailed to the patient.</>
                     )}
                     {actor === "doctor" && (
-                      <>Medical fields (blood type, allergies, conditions, medications) save without a code. Other fields require a code sent to the patient&apos;s phone.</>
+                      <>Medical fields (blood type, allergies, conditions, medications) save without a code. Other fields require a code emailed to the patient.</>
                     )}
                   </div>
                 )}
@@ -593,7 +593,7 @@ export function UserProfileDrawer({
 
       {challenge && (
         <VerifyCodeModal
-          phoneHint={challenge.phoneHint}
+          emailHint={challenge.emailHint}
           provider={challenge.provider}
           expiresAt={challenge.expiresAt}
           onVerify={onVerify}
