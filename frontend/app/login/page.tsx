@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth-context";
 import { loginSchema, homeForRole } from "@/lib/auth-validation";
 import { ApiError } from "@/lib/api";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -104,6 +105,12 @@ export default function LoginPage() {
           error={fieldErrors.password}
           disabled={submitting}
         />
+
+        <div className="-mt-1 flex justify-end">
+          <Link href="/forgot-password" className="text-xs text-primary-700 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
 
         {serverError && (
           <div

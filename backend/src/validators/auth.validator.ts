@@ -24,7 +24,7 @@ const COMMON_PASSWORDS = [
   "dragon",
 ];
 
-const strongPassword = z
+export const strongPassword = z
   .string()
   .min(8, "Password must be at least 8 characters")
   .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
@@ -80,3 +80,17 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// MEDI-100: forgot/reset password.
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email format"),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Reset token is required"),
+  password: strongPassword,
+});
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
