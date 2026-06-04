@@ -46,10 +46,16 @@ services:
       # MEDI-101 background scheduler (auto-cancel sweep + 24h reminder loop).
       SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-true}"
       SCHEDULER_CRON: "${SCHEDULER_CRON:-*/15 * * * *}"
-      # MEDI-98 email adapter (console default; set EMAIL_PROVIDER=resend in prod).
+      # MEDI-98 email adapter (console default; set EMAIL_PROVIDER=resend|smtp).
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       EMAIL_FROM: "${EMAIL_FROM:-MediSlot <noreply@medislot.example>}"
+      # SMTP transport (used when EMAIL_PROVIDER=smtp, e.g. Gmail App Password).
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_SECURE: "${SMTP_SECURE:-false}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASS: "${SMTP_PASS:-}"
       # MEDI-100 password reset links point at the frontend (host-side URL).
       APP_BASE_URL: "${APP_BASE_URL:-http://localhost:3001}"
     ports:
