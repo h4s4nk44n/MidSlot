@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 interface VerifyCodeModalProps {
-  phoneHint: string;
+  emailHint: string;
   provider: string;
   expiresAt: string;
   onVerify: (
@@ -15,11 +15,11 @@ interface VerifyCodeModalProps {
 
 /**
  * Six-digit code prompt for receptionist/doctor profile edits. The actor enters
- * the code that was just delivered to the patient's phone (or, in this demo,
- * to the server console via the ConsoleSmsProvider).
+ * the code that was just emailed to the patient (in this demo, logged to the
+ * server console unless a real email provider is configured).
  */
 export function VerifyCodeModal({
-  phoneHint,
+  emailHint,
   provider,
   expiresAt,
   onVerify,
@@ -89,8 +89,8 @@ export function VerifyCodeModal({
             Confirm with patient code
           </h2>
           <p className="mt-1 text-sm text-text-muted">
-            We sent a 6-digit code to{" "}
-            <strong className="text-text-primary">{phoneHint}</strong>. Ask the patient
+            We emailed a 6-digit code to{" "}
+            <strong className="text-text-primary">{emailHint}</strong>. Ask the patient
             to read it back.
           </p>
           <p className="mt-1 font-mono text-2xs uppercase tracking-widest text-text-subtle">
