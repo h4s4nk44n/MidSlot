@@ -17,6 +17,7 @@ import {
 } from "../services/receptionist.service";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";
+import { sendBookingConfirmation } from "../services/booking-email.service";
 
 export const getPatients = async (
   req: AuthRequest,
@@ -221,6 +222,9 @@ export const postAppointmentOnBehalf = async (
       ip: req.ip,
       userAgent: req.headers["user-agent"]?.slice(0, 500),
     });
+
+    // MEDI-98: confirmation email to the patient (best-effort; never breaks booking).
+    await sendBookingConfirmation(appointment.id);
 
     res.status(201).json({
       message: "Appointment booked successfully.",

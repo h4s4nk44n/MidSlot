@@ -6,6 +6,7 @@ import { paginate } from "../utils/pagination";
 import { listMyAppointmentsQuerySchema } from "../validations/appointment.validation";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";
+import { sendBookingConfirmation } from "../services/booking-email.service";
 
 // --- MEDI-38: Role-Aware Listing + MEDI-50: Pagination/filters ---
 export const getMyAppointments = async (
@@ -229,6 +230,9 @@ export const createAppointment = async (
       ip: req.ip,
       userAgent: req.headers["user-agent"]?.slice(0, 500),
     });
+
+    // MEDI-98: confirmation email (best-effort; never blocks or breaks booking).
+    await sendBookingConfirmation(appointment.id);
 
     res.status(201).json({
       message: "Appointment booked successfully.",
