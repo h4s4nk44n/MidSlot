@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AuthShell, AuthSwitchLink, ComplianceStrip } from "@/components/auth/AuthShell";
 import { FormField } from "@/components/ui/FormField";
+import { PasswordField } from "@/components/ui/PasswordField";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth-context";
 import { loginSchema, homeForRole } from "@/lib/auth-validation";
@@ -94,9 +95,8 @@ export default function LoginPage() {
           disabled={submitting}
         />
 
-        <FormField
+        <PasswordField
           name="password"
-          type="password"
           label="Password"
           autoComplete="current-password"
           required

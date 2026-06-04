@@ -3,9 +3,10 @@
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthShell, AuthSwitchLink, ComplianceStrip } from "@/components/auth/AuthShell";
-import { FormField } from "@/components/ui/FormField";
+import { PasswordField } from "@/components/ui/PasswordField";
 import { Button } from "@/components/ui/Button";
 import { resetPasswordSchema } from "@/lib/auth-validation";
+import { passwordMeetsAllRules } from "@/lib/password-rules";
 import { apiPost, ApiError } from "@/lib/api";
 
 function ResetPasswordForm() {
@@ -69,20 +70,19 @@ function ResetPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3.5">
-      <FormField
+      <PasswordField
         name="password"
-        type="password"
         label="New password"
         autoComplete="new-password"
         required
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         error={fieldErrors.password}
+        showRequirements
         disabled={submitting}
       />
-      <FormField
+      <PasswordField
         name="confirm"
-        type="password"
         label="Confirm new password"
         autoComplete="new-password"
         required
@@ -101,7 +101,13 @@ function ResetPasswordForm() {
         </div>
       )}
 
-      <Button type="submit" size="lg" loading={submitting} className="mt-2 w-full">
+      <Button
+        type="submit"
+        size="lg"
+        loading={submitting}
+        disabled={!passwordMeetsAllRules(password) || password !== confirm}
+        className="mt-2 w-full"
+      >
         {submitting ? "Resetting…" : "Reset password"}
       </Button>
     </form>
