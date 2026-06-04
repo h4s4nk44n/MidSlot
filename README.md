@@ -1210,7 +1210,7 @@ Paginated list of appointments scoped to the caller:
 - **RECEPTIONIST** — appointments for doctors they are assigned to
 - **ADMIN** — all appointments
 
-Triggers the debounced auto-cancel sweep (≤ 1 / minute) that flips stale `BOOKED` appointments to `CANCELLED`.
+Stale `BOOKED` appointments — those a doctor never started within 1 h of the slot's end — are flipped to `CANCELLED` by the [background scheduler](#background-scheduler), independent of this endpoint.
 
 **Auth:** Authenticated
 
@@ -1465,6 +1465,24 @@ Public liveness probe — used by Docker `HEALTHCHECK` and the smoke test. Does 
 
 ---
 
+### Background scheduler
+
+A [node-cron](https://www.npmjs.com/package/node-cron) job runs a maintenance cycle every 15 minutes (configurable via `SCHEDULER_CRON`), **independent of HTTP traffic**. Each cycle runs the **auto-cancel sweep** (stale `BOOKED` → `CANCELLED`) and the **24 h reminder loop**, logging a start/finish line per run. This replaces the old debounced in-process sweep that only fired when someone hit a listing endpoint. The scheduler never starts under `NODE_ENV=test` and can be disabled with `SCHEDULER_ENABLED=false`.
+
+| Endpoint               | Verb | Description |
+| ---------------------- | ---- | ----------- |
+| `/admin/scheduler/run` | POST | Run a maintenance cycle on demand (handy for demos). Returns `{ autoCancelled, remindersSent }`. |
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:3000/api/admin/scheduler/run \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+# { "message": "Maintenance cycle executed.", "data": { "autoCancelled": 2, "remindersSent": 0 } }
+```
+
+---
+
 ## Security & Hardening
 
 | Concern             | Implementation |
@@ -1509,6 +1527,8 @@ Public liveness probe — used by Docker `HEALTHCHECK` and the smoke test. Does 
 | `SEED_PRODUCTION`         | no       | unset                | Must be `true` to seed in `NODE_ENV=production` |
 | `SEED_ADMIN_PASSWORD`     | no       | dev default          | Override admin seed password |
 | `SEED_USER_PASSWORD`      | no       | dev default          | Override seed password for non-admin users |
+| `SCHEDULER_ENABLED`       | no       | `true`               | Set `false` to disable the background scheduler (never runs under test) |
+| `SCHEDULER_CRON`          | no       | `*/15 * * * *`       | Cron expression for the maintenance cycle (auto-cancel + reminders) |
 
 ### Root (`./.env` — Docker Compose only)
 
@@ -1524,6 +1544,8 @@ Public liveness probe — used by Docker `HEALTHCHECK` and the smoke test. Does 
 | `JWT_ACCESS_TTL`        | `1h`                          | Access TTL (compose sets `JWT_EXPIRES_IN`) |
 | `JWT_REFRESH_TTL`       | `7d`                          | Refresh TTL |
 | `CLINIC_TIMEZONE`       | `Europe/Istanbul`             | IANA timezone |
+| `SCHEDULER_ENABLED`     | `true`                        | Toggle the backend maintenance scheduler |
+| `SCHEDULER_CRON`        | `*/15 * * * *`                | Maintenance cycle cron expression |
 
 ---
 

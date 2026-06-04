@@ -43,6 +43,9 @@ services:
       REFRESH_TOKEN_EXPIRES_IN: ${JWT_REFRESH_TTL:-7d}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001}
       CLINIC_TIMEZONE: ${CLINIC_TIMEZONE:-Europe/Istanbul}
+      # MEDI-101 background scheduler (auto-cancel sweep + 24h reminder loop).
+      SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-true}"
+      SCHEDULER_CRON: "${SCHEDULER_CRON:-*/15 * * * *}"
     ports:
       - "${BACKEND_HOST_PORT:-3000}:3000"
     healthcheck:
