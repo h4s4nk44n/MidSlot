@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "crypto";
 import { PrismaClient, Role, AppointmentStatus, Gender, BloodType } from "../src/generated/prisma";
 import bcrypt from "bcrypt";
 
@@ -563,6 +564,8 @@ async function main(): Promise<void> {
       },
     ];
 
+    // Collect every doctor record so we can give each one appointments below.
+    const allDoctorRecords = [doctor1, doctor2, doctor3];
     for (const d of additionalDoctors) {
       const dob = new Date(d.dateOfBirth);
       const u = await tx.user.create({
@@ -584,7 +587,7 @@ async function main(): Promise<void> {
           nationalId: d.nationalId,
         },
       });
-      await tx.doctor.create({
+      const dr = await tx.doctor.create({
         data: {
           userId: u.id,
           title: d.title,
@@ -594,6 +597,7 @@ async function main(): Promise<void> {
           dateOfBirth: dob,
         },
       });
+      allDoctorRecords.push(dr);
     }
 
     // ── 5. Create patient users ────────────────────────────────────────────
@@ -791,8 +795,10 @@ async function main(): Promise<void> {
       },
     ];
 
+    // Collect every patient record so appointments below can rotate through them.
+    const allPatientRecords = [patient1, patient2, patient3];
     for (const p of additionalPatients) {
-      await tx.user.create({
+      const pu = await tx.user.create({
         data: {
           email: p.email,
           password: hashedPassword,
@@ -816,6 +822,7 @@ async function main(): Promise<void> {
           insurancePolicyNumber: p.insurancePolicyNumber,
         },
       });
+      allPatientRecords.push(pu);
     }
 
     // ── 6. Create receptionist assignments ────────────────────────────────
@@ -1092,9 +1099,61 @@ async function main(): Promise<void> {
       },
     });
 
+    // ── 8b. Upcoming appointments for EVERY doctor — 10 each across June 10–17,
+    // 2026 (all BOOKED, so they land in each doctor's "upcoming" view + the
+    // dashboard "upcoming" panel). Built with two createMany calls (explicit
+    // slot ids) so ~360 rows don't blow the interactive-transaction timeout.
+    console.log("Seeding June 10–17, 2026 upcoming appointments for every doctor...");
+    const JUNE = 5; // month index (0 = January)
+    const PER_DOCTOR = 10;
+    const bulkSlots: Array<{
+      id: string;
+      doctorId: string;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      isBooked: boolean;
+    }> = [];
+    const bulkAppointments: Array<{
+      patientId: string;
+      doctorId: string;
+      timeSlotId: string;
+      status: AppointmentStatus;
+      notes: string;
+    }> = [];
+    for (let di = 0; di < allDoctorRecords.length; di++) {
+      const doc = allDoctorRecords[di];
+      for (let i = 0; i < PER_DOCTOR; i++) {
+        const day = 10 + (i % 8); // June 10..17
+        const hour = 9 + (i % 7); // 09:00..15:00
+        const slotId = randomUUID();
+        const patient = allPatientRecords[(di * PER_DOCTOR + i) % allPatientRecords.length];
+        bulkSlots.push({
+          id: slotId,
+          doctorId: doc.id,
+          date: new Date(2026, JUNE, day),
+          startTime: new Date(2026, JUNE, day, hour, 0, 0, 0),
+          endTime: new Date(2026, JUNE, day, hour, 30, 0, 0),
+          isBooked: true,
+        });
+        bulkAppointments.push({
+          patientId: patient.id,
+          doctorId: doc.id,
+          timeSlotId: slotId,
+          status: AppointmentStatus.BOOKED,
+          notes: "Scheduled consultation.",
+        });
+      }
+    }
+    await tx.timeSlot.createMany({ data: bulkSlots });
+    await tx.appointment.createMany({ data: bulkAppointments });
+    console.log(
+      `   - Created ${bulkAppointments.length} upcoming appointments (${PER_DOCTOR} each) for ${allDoctorRecords.length} doctors`,
+    );
+
     // ── 9. Summary ─────────────────────────────────────────────────────────
     console.log("\nSeed completed successfully!");
-    console.log("   - Created 1 admin, 3 receptionists, 18 doctors, 8 patients, 15 slots, 5 appointments, 3 assignments");
+    console.log("   - Created 1 admin, 3 receptionists, 18 doctors, 8 patients, plus 10 upcoming appointments per doctor (Jun 10-17, 2026)");
     // HIGH-014: never print plaintext passwords — they leak into log files,
     // CI artifacts, and container output. Operators receive credentials via
     // SEED_*_PASSWORD env values which they themselves provided.
@@ -1132,7 +1191,7 @@ async function main(): Promise<void> {
     console.log("   • hakan.aslan@example.com");
     console.log("   • yusuf.gunes@example.com");
     console.log("   • irem.tan@example.com");
-  });
+  }, { timeout: 60000, maxWait: 10000 });
 }
 
 main()
