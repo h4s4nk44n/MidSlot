@@ -20,11 +20,11 @@ class ConsoleSmsProvider implements SmsProvider {
     // Big banner so it's impossible to miss in `npm run dev` output.
     logger.info(
       `\n` +
-      `┌─────────────────────────────────────────────────────────┐\n` +
-      `│  📱 [MOCK SMS]                                           │\n` +
-      `│  To:      ${to.padEnd(45)} │\n` +
-      `│  Message: ${message.padEnd(45)} │\n` +
-      `└─────────────────────────────────────────────────────────┘\n`
+        `┌─────────────────────────────────────────────────────────┐\n` +
+        `│  📱 [MOCK SMS]                                           │\n` +
+        `│  To:      ${to.padEnd(45)} │\n` +
+        `│  Message: ${message.padEnd(45)} │\n` +
+        `└─────────────────────────────────────────────────────────┘\n`,
     );
   }
 }

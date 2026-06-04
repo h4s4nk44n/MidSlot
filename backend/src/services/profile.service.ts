@@ -56,9 +56,7 @@ export async function getProfile(userId: string) {
  * - Trimmed empty strings on free-text fields are coerced to `null` so the UI
  *   can clear a field by submitting "".
  */
-export function buildProfileUpdateData(
-  patch: UpdateProfileInput,
-): Prisma.UserUpdateInput {
+export function buildProfileUpdateData(patch: UpdateProfileInput): Prisma.UserUpdateInput {
   const data: Prisma.UserUpdateInput = {};
 
   const assignString = (key: keyof UpdateProfileInput) => {
@@ -100,16 +98,10 @@ export function buildProfileUpdateData(
  * both surface identical clean errors to the caller.
  */
 export function mapProfileUpdateError(err: unknown): never {
-  if (
-    err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2002"
-  ) {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
     throw new ConflictError("This national ID is already registered to another account.");
   }
-  if (
-    err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2025"
-  ) {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
     throw new NotFoundError("User not found.");
   }
   throw err;

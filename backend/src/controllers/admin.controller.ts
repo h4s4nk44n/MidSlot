@@ -14,10 +14,7 @@ import {
   transferAdmin,
 } from "../services/admin.service";
 import { Role } from "../generated/prisma";
-import {
-  listAdminUsersQuerySchema,
-  updateAdminUserSchema,
-} from "../validations/admin.validation";
+import { listAdminUsersQuerySchema, updateAdminUserSchema } from "../validations/admin.validation";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";
 import { prisma } from "../lib/prisma";
@@ -88,9 +85,7 @@ export const removeUser = async (
       action: AuditAction.USER_DELETE,
       targetType: "User",
       targetId: id,
-      metadata: target
-        ? { email: target.email, role: target.role, name: target.name }
-        : {},
+      metadata: target ? { email: target.email, role: target.role, name: target.name } : {},
       ip: req.ip,
       userAgent: req.headers["user-agent"]?.slice(0, 500),
     });
@@ -190,10 +185,7 @@ export const patchUser = async (
         userAgent: req.headers["user-agent"]?.slice(0, 500),
       });
     }
-    if (
-      parsed.data.gender !== undefined &&
-      parsed.data.gender !== before?.doctor?.gender
-    ) {
+    if (parsed.data.gender !== undefined && parsed.data.gender !== before?.doctor?.gender) {
       audit.log({
         actorId: currentUserId,
         action: AuditAction.USER_GENDER_CHANGE,

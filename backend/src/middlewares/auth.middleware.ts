@@ -67,10 +67,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         name: true,
         role: true,
         createdAt: true,
-        doctor:
-          req.user!.role === "DOCTOR"
-            ? { select: DOCTOR_SAFE_SELECT }
-            : false,
+        doctor: req.user!.role === "DOCTOR" ? { select: DOCTOR_SAFE_SELECT } : false,
       },
     });
 

@@ -12,14 +12,8 @@ export const bookAppointmentSchema = z.object({
  */
 export const createAppointmentSchema = z.object({
   timeSlotId: z.string().uuid({ message: "timeSlotId must be a valid UUID" }),
-  patientId: z
-    .string()
-    .uuid({ message: "patientId must be a valid UUID" })
-    .optional(),
-  notes: z
-    .string()
-    .max(2000, { message: "notes must be 2000 characters or fewer" })
-    .optional(),
+  patientId: z.string().uuid({ message: "patientId must be a valid UUID" }).optional(),
+  notes: z.string().max(2000, { message: "notes must be 2000 characters or fewer" }).optional(),
 });
 
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;

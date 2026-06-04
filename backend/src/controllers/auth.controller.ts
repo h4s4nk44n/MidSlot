@@ -1,11 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { registerSchema, loginSchema } from "../validators/auth.validator";
-import {
-  registerUser,
-  loginUser,
-  rotateRefreshToken,
-  logoutUser,
-} from "../services/auth.service";
+import { registerUser, loginUser, rotateRefreshToken, logoutUser } from "../services/auth.service";
 import { prisma } from "../lib/prisma";
 import { BadRequestError, UnauthorisedError } from "../utils/errors";
 import {
@@ -20,11 +15,7 @@ const getRequestContext = (req: Request) => ({
   ip: req.ip,
 });
 
-export const register = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -41,11 +32,7 @@ export const register = async (
   }
 };
 
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -70,11 +57,7 @@ export const login = async (
   }
 };
 
-export const refresh = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const refresh = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const presented = req.cookies?.[REFRESH_COOKIE_NAME];
 
@@ -111,11 +94,7 @@ export const refresh = async (
  *
  * Returns 401 if the cookie is missing, unknown, revoked, or expired.
  */
-export const verify = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const verify = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const presented = req.cookies?.[REFRESH_COOKIE_NAME];
     if (!presented || typeof presented !== "string") {
@@ -144,11 +123,7 @@ export const verify = async (
   }
 };
 
-export const logout = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const presented = req.cookies?.[REFRESH_COOKIE_NAME];
 

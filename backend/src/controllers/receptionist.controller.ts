@@ -1,4 +1,4 @@
-import {prisma} from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { listUsers, getUserDetails } from "../services/admin.service";
@@ -255,7 +255,7 @@ export const cancelAppointment = async (
       ip: req.ip,
       userAgent: req.headers["user-agent"]?.slice(0, 500),
     });
-    
+
     res.status(200).json({
       message: "Appointment cancelled successfully.",
       data: appointment,

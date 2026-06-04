@@ -9,10 +9,7 @@ import {
   requestProfileChange,
   verifyCodeAndApply,
 } from "../services/profile-change.service";
-import {
-  assertActiveAppointment,
-  isMedicalOnlyPayload,
-} from "../services/doctor-patient.service";
+import { assertActiveAppointment, isMedicalOnlyPayload } from "../services/doctor-patient.service";
 import { updateProfile } from "../services/profile.service";
 import audit from "../utils/audit";
 import { AuditAction } from "../types/audit";

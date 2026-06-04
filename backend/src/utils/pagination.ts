@@ -26,7 +26,7 @@ export interface Paginated<T> {
  * Accepts any delegate with findMany + count (all Prisma models satisfy this).
  * Args are typed loosely so every Prisma model matches structurally.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 interface PaginatableDelegate {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   findMany: (args?: any) => Promise<any[]>;
@@ -67,10 +67,9 @@ export async function paginate<T>(
 
   // findMany + count inside a single $transaction so the count and the
   // returned page observe a consistent database snapshot.
-  const ops = [
-    model.findMany(findManyArgs),
-    model.count({ where }),
-  ] as unknown as Parameters<typeof prisma.$transaction>[0];
+  const ops = [model.findMany(findManyArgs), model.count({ where })] as unknown as Parameters<
+    typeof prisma.$transaction
+  >[0];
   const [items, total] = (await prisma.$transaction(ops)) as unknown as [T[], number];
 
   return {

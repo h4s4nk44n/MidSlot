@@ -17,9 +17,7 @@ interface ListUsersOptions {
   viewerRole: Role;
 }
 
-export const listUsers = async (
-  opts: ListUsersOptions,
-): Promise<Paginated<unknown>> => {
+export const listUsers = async (opts: ListUsersOptions): Promise<Paginated<unknown>> => {
   const { role, q, active, page, pageSize, viewerRole } = opts;
 
   const where: Record<string, unknown> = {};
@@ -214,17 +212,13 @@ export const updateUser = async (
         create: {
           userId,
           ...(patch.title !== undefined ? { title: patch.title } : {}),
-          ...(patch.specialization !== undefined
-            ? { specialization: patch.specialization }
-            : {}),
+          ...(patch.specialization !== undefined ? { specialization: patch.specialization } : {}),
           ...(patch.gender !== undefined ? { gender: patch.gender } : {}),
           ...(dobValue !== undefined ? { dateOfBirth: dobValue } : {}),
         },
         update: {
           ...(patch.title !== undefined ? { title: patch.title } : {}),
-          ...(patch.specialization !== undefined
-            ? { specialization: patch.specialization }
-            : {}),
+          ...(patch.specialization !== undefined ? { specialization: patch.specialization } : {}),
           ...(patch.gender !== undefined ? { gender: patch.gender } : {}),
           ...(dobValue !== undefined ? { dateOfBirth: dobValue } : {}),
         },

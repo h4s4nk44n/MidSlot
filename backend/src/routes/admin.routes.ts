@@ -12,10 +12,7 @@ import {
   postRevokeAdmin,
   postTransferAdmin,
 } from "../controllers/admin.controller";
-import {
-  postDepartment,
-  removeDepartment,
-} from "../controllers/department.controller";
+import { postDepartment, removeDepartment } from "../controllers/department.controller";
 import { patchProfileByAdmin } from "../controllers/profile.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
 

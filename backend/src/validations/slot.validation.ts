@@ -12,10 +12,7 @@ export const listSlotsQuerySchema = paginationQuerySchema.extend({
     .string()
     .refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid date" })
     .optional(),
-  from: z
-    .string()
-    .datetime({ message: "from must be a valid ISO datetime" })
-    .optional(),
+  from: z.string().datetime({ message: "from must be a valid ISO datetime" }).optional(),
   to: z.string().datetime({ message: "to must be a valid ISO datetime" }).optional(),
 });
 

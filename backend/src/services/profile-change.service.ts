@@ -9,11 +9,7 @@ import {
   TooManyRequestsError,
   UnprocessableEntityError,
 } from "../utils/errors";
-import {
-  PROFILE_SELECT,
-  buildProfileUpdateData,
-  mapProfileUpdateError,
-} from "./profile.service";
+import { PROFILE_SELECT, buildProfileUpdateData, mapProfileUpdateError } from "./profile.service";
 import type { UpdateProfileInput } from "../validations/profile.validation";
 import type { Prisma } from "../generated/prisma";
 import audit from "../utils/audit";
@@ -29,10 +25,10 @@ const CODE_BCRYPT_ROUNDS = 12; // HIGH-002
 // process — adequate for single-instance deployments. Behind a load balancer
 // move this to Redis (or a DB-backed counter on VerificationCode).
 const SMS_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 min
-const SMS_MAX_PER_TARGET_PHONE = 3;          // 3 codes per phone / 15 min
-const SMS_MAX_PER_REQUESTER = 10;            // 10 codes per staff member / 15 min
-const SMS_MAX_PER_TARGET_USER = 3;           // 3 codes per target user / 15 min
-const SMS_RESEND_COOLDOWN_MS = 60 * 1000;    // 1 min between sends to same target
+const SMS_MAX_PER_TARGET_PHONE = 3; // 3 codes per phone / 15 min
+const SMS_MAX_PER_REQUESTER = 10; // 10 codes per staff member / 15 min
+const SMS_MAX_PER_TARGET_USER = 3; // 3 codes per target user / 15 min
+const SMS_RESEND_COOLDOWN_MS = 60 * 1000; // 1 min between sends to same target
 
 interface SmsRateRecord {
   hits: number[]; // unix-ms timestamps within the rolling window
@@ -63,9 +59,7 @@ function hashPhone(phone: string): string {
   return createHash("sha256").update(phone).digest("hex").slice(0, 32);
 }
 
-export type ProfileChangePurpose =
-  | "profile_edit_by_receptionist"
-  | "profile_edit_by_doctor";
+export type ProfileChangePurpose = "profile_edit_by_receptionist" | "profile_edit_by_doctor";
 
 /** Generate a zero-padded N-digit code using crypto.randomInt for uniformity. */
 function generateCode(): string {
@@ -99,9 +93,7 @@ export interface RequestCodeResult {
  * patient's phone via the configured SmsProvider. The change is NOT applied
  * until {@link verifyCodeAndApply} succeeds.
  */
-export async function requestProfileChange(
-  opts: RequestCodeOptions,
-): Promise<RequestCodeResult> {
+export async function requestProfileChange(opts: RequestCodeOptions): Promise<RequestCodeResult> {
   const target = await prisma.user.findUnique({
     where: { id: opts.targetUserId },
     // updatedAt snapshot is required for stale-payload detection on verify.
@@ -144,8 +136,7 @@ export async function requestProfileChange(
   ]) {
     const check = bumpAndCheck(bucket, limit, now, SMS_LIMIT_WINDOW_MS);
     if (!check.allowed) {
-      const retryAfterMs =
-        SMS_LIMIT_WINDOW_MS - (now - (check.oldestHitAt ?? now));
+      const retryAfterMs = SMS_LIMIT_WINDOW_MS - (now - (check.oldestHitAt ?? now));
       throw new TooManyRequestsError(
         "SMS code rate limit reached. Please try again later.",
         Math.ceil(retryAfterMs / 1000),

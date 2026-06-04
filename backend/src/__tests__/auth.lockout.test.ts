@@ -7,7 +7,6 @@ import { prisma } from "../lib/prisma";
 // variable must be set BEFORE the app is imported.
 process.env.DISABLE_RATE_LIMIT = "true";
 
-// eslint-disable-next-line import/first
 import app from "../index";
 
 describe("Account lockout after repeated failed logins", () => {

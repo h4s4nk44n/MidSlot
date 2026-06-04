@@ -11,7 +11,13 @@ const logger = pino({
     },
   }),
   redact: {
-    paths: ["req.headers.authorization", "req.body.password", "req.body.token", "*.token", "*.password"],
+    paths: [
+      "req.headers.authorization",
+      "req.body.password",
+      "req.body.token",
+      "*.token",
+      "*.password",
+    ],
     censor: "[REDACTED]",
   },
 });

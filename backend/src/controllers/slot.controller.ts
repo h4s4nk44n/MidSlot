@@ -94,11 +94,7 @@ export const createSlot = async (
   }
 };
 
-export const getSlots = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const getSlots = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parsed = listSlotsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -184,9 +180,7 @@ export const updateSlot = async (
     // Mutating a booked slot would silently break the linked appointment.
     // Force the user to cancel the appointment first.
     if (currentSlot.isBooked) {
-      throw new ConflictError(
-        "Cannot modify a booked slot. Cancel the appointment first.",
-      );
+      throw new ConflictError("Cannot modify a booked slot. Cancel the appointment first.");
     }
 
     const newStart = startTime ? new Date(startTime) : currentSlot.startTime;
@@ -252,9 +246,7 @@ export const deleteSlot = async (
     }
 
     if (currentSlot.isBooked) {
-      throw new ConflictError(
-        "Cannot delete a booked slot. Cancel the appointment first.",
-      );
+      throw new ConflictError("Cannot delete a booked slot. Cancel the appointment first.");
     }
 
     await prisma.timeSlot.delete({ where: { id } });

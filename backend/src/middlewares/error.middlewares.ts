@@ -3,7 +3,6 @@ import { AppError, AccountLockedError, TooManyRequestsError } from "../utils/err
 import logger from "../lib/logger";
 
 const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction): void => {
-
   // Express body-parser: payload size limit exceeded
   const maybePayloadErr = err as Error & { type?: string; status?: number };
   if (maybePayloadErr.type === "entity.too.large" || maybePayloadErr.status === 413) {
@@ -45,7 +44,7 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
     });
     return;
   }
-  
+
   // Known operational errors (AppError subclasses)
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
