@@ -1483,6 +1483,12 @@ curl -X POST http://localhost:3000/api/admin/scheduler/run \
 
 ---
 
+### Email notifications
+
+Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `console` transport logs messages (dev + tests) and `resend` delivers via the [Resend](https://resend.com) API (`RESEND_API_KEY` + `EMAIL_FROM`). On a successful booking the patient receives a **confirmation email** with the doctor, date and time. Tests inject a fake transport, so CI never contacts a real provider.
+
+---
+
 ## Security & Hardening
 
 | Concern             | Implementation |
@@ -1529,6 +1535,9 @@ curl -X POST http://localhost:3000/api/admin/scheduler/run \
 | `SEED_USER_PASSWORD`      | no       | dev default          | Override seed password for non-admin users |
 | `SCHEDULER_ENABLED`       | no       | `true`               | Set `false` to disable the background scheduler (never runs under test) |
 | `SCHEDULER_CRON`          | no       | `*/15 * * * *`       | Cron expression for the maintenance cycle (auto-cancel + reminders) |
+| `EMAIL_PROVIDER`          | no       | `console`            | `console` (logs emails) or `resend` (Resend API) |
+| `RESEND_API_KEY`          | cond.    | —                    | Resend API key — required when `EMAIL_PROVIDER=resend` |
+| `EMAIL_FROM`              | cond.    | —                    | From address — required when `EMAIL_PROVIDER=resend` |
 
 ### Root (`./.env` — Docker Compose only)
 
@@ -1546,6 +1555,9 @@ curl -X POST http://localhost:3000/api/admin/scheduler/run \
 | `CLINIC_TIMEZONE`       | `Europe/Istanbul`             | IANA timezone |
 | `SCHEDULER_ENABLED`     | `true`                        | Toggle the backend maintenance scheduler |
 | `SCHEDULER_CRON`        | `*/15 * * * *`                | Maintenance cycle cron expression |
+| `EMAIL_PROVIDER`        | `console`                     | `console` or `resend` |
+| `RESEND_API_KEY`        | (empty)                       | Resend API key (for `resend`) |
+| `EMAIL_FROM`            | (example)                     | From address (for `resend`) |
 
 ---
 

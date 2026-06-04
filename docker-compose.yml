@@ -46,6 +46,10 @@ services:
       # MEDI-101 background scheduler (auto-cancel sweep + 24h reminder loop).
       SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-true}"
       SCHEDULER_CRON: "${SCHEDULER_CRON:-*/15 * * * *}"
+      # MEDI-98 email adapter (console default; set EMAIL_PROVIDER=resend in prod).
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      EMAIL_FROM: "${EMAIL_FROM:-MediSlot <noreply@medislot.example>}"
     ports:
       - "${BACKEND_HOST_PORT:-3000}:3000"
     healthcheck:
