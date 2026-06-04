@@ -48,7 +48,9 @@ jobs:
       # deploy` resolve the datasource. The test scripts themselves load
       # backend/.env.test (via dotenv-cli), which carries JWT_SECRET, the test
       # DATABASE_URL, DISABLE_RATE_LIMIT, COOKIE_SECURE, etc.
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/midslot_test?schema=public
+      # connection_limit caps each test file's Prisma pool so the coverage run
+      # (slower, many PrismaClient instances) can't exhaust Postgres connections.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/midslot_test?schema=public&connection_limit=5
 
     steps:
       - name: Checkout
@@ -76,8 +78,16 @@ jobs:
       - name: Apply migrations to the test database
         run: npm run test:setup
 
-      - name: Test
-        run: npm test
+      - name: Test (with coverage + threshold gate)
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+          retention-days: 14
 
   frontend:
     name: Frontend · lint · build
