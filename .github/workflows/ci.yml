@@ -1,0 +1,112 @@
+name: CI
+
+# Runs lint, build and test for the backend (backend/) and the frontend
+# (frontend/) on every push and pull request. A Postgres service container
+# backs the backend integration tests; npm downloads are cached per lockfile.
+# Node 20 matches the backend & frontend Dockerfiles.
+#
+# Branch protection on `main` (require this workflow to pass before merge) is a
+# repository setting and must be enabled manually in GitHub → Settings →
+# Branches. See the README "Continuous Integration" section.
+
+on:
+  push:
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · lint · build · test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          # Must match the database in backend/.env.test (DATABASE_URL).
+          POSTGRES_DB: midslot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Mirrors backend/.env.test so `prisma generate` and `prisma migrate
+      # deploy` resolve the datasource. The test scripts themselves load
+      # backend/.env.test (via dotenv-cli), which carries JWT_SECRET, the test
+      # DATABASE_URL, DISABLE_RATE_LIMIT, COOKIE_SECURE, etc.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/midslot_test?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Apply migrations to the test database
+        run: npm run test:setup
+
+      - name: Test
+        run: npm test
+
+  frontend:
+    name: Frontend · lint · build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          # Baked into the bundle at build time; CI only needs a valid URL so
+          # the build resolves. Not used by any CI assertion.
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api

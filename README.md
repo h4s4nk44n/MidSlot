@@ -1,5 +1,7 @@
 # MediSlot
 
+[![CI](https://github.com/h4s4nk44n/MidSlot/actions/workflows/ci.yml/badge.svg)](https://github.com/h4s4nk44n/MidSlot/actions/workflows/ci.yml)
+
 **Medical appointment scheduling platform** — A full-featured backend API for managing doctor–patient appointments, time slots, healthcare provider profiles, in-person clinical sessions, and patient medical records.
 
 ---
@@ -14,6 +16,7 @@
 - [Running the Application](#running-the-application)
 - [Run with Docker](#run-with-docker)
 - [Smoke Test](#smoke-test)
+- [Continuous Integration](#continuous-integration)
 - [API Documentation](#api-documentation)
   - [Authentication Endpoints](#authentication-endpoints)
   - [Profile Endpoints](#profile-endpoints)
@@ -843,6 +846,35 @@ The script:
 6. Always tears down with `docker compose down -v` on exit
 
 Exit code `0` = all steps passed. Each step prints `[PASS]` / `[FAIL]`.
+
+---
+
+## Continuous Integration
+
+Every push and pull request runs the [CI workflow](.github/workflows/ci.yml)
+([live runs](https://github.com/h4s4nk44n/MidSlot/actions/workflows/ci.yml)),
+which has two independent jobs (Node 20, matching the Dockerfiles):
+
+| Job                        | Steps                                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Backend** (`backend/`)   | `npm ci` → `prisma generate` → `lint` → `build` → `test:setup` (migrate the test DB) → `test`, against a Postgres 16 service container |
+| **Frontend** (`frontend/`) | `npm ci` → `lint` → `build`                                                                                                   |
+
+npm downloads are cached per lockfile. The backend integration tests run
+against an ephemeral Postgres service provided by GitHub Actions (database
+`midslot_test`, matching `backend/.env.test`), so no external database is
+needed for CI.
+
+### Branch protection (manual step)
+
+Requiring a green CI run before merging into `main` is a **repository setting**
+and is intentionally _not_ configured by the workflow file. Enable it once in
+**GitHub → Settings → Branches → Branch protection rules**:
+
+1. Add a rule for the `main` branch.
+2. Enable **Require status checks to pass before merging**.
+3. Select the **Backend · lint · build · test** and **Frontend · lint · build**
+   checks.
 
 ---
 
