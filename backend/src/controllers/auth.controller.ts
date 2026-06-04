@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { registerSchema, loginSchema } from "../validators/auth.validator";
+import {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "../validators/auth.validator";
 import { registerUser, loginUser, rotateRefreshToken, logoutUser } from "../services/auth.service";
+import { requestPasswordReset, resetPassword } from "../services/password-reset.service";
 import { prisma } from "../lib/prisma";
 import { BadRequestError, UnauthorisedError } from "../utils/errors";
 import {
@@ -131,6 +137,43 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
     clearRefreshCookie(res);
 
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new BadRequestError(parsed.error.issues[0]?.message || "Invalid input");
+    }
+    await requestPasswordReset(parsed.data.email);
+    // Always 200 — never reveal whether the email is registered (anti-enumeration).
+    res.status(200).json({
+      message: "If that email is registered, a password reset link has been sent.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPasswordHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new BadRequestError(parsed.error.issues[0]?.message || "Invalid input");
+    }
+    await resetPassword(parsed.data.token, parsed.data.password);
+    res.status(200).json({ message: "Password has been reset. You can now log in." });
   } catch (error) {
     next(error);
   }

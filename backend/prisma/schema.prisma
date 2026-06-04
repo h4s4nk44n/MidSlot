@@ -83,6 +83,7 @@ model User {
   doctor         Doctor?
   appointments   Appointment[]
   refreshTokens  RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   auditLogs      AuditLog[]   @relation("AuditActor")
 
   receptionistAssignments ReceptionistAssignment[] @relation("ReceptionistAssignments")
@@ -279,4 +280,20 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+// MEDI-100: single-use, time-limited password reset tokens. The raw token is
+// emailed to the user; only its sha256 hash is stored here.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

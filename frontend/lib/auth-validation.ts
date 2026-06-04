@@ -24,7 +24,7 @@ const COMMON_PASSWORDS = [
   "dragon",
 ];
 
-const strongPassword = z
+export const strongPassword = z
   .string()
   .min(8, "Password must be at least 8 characters")
   .regex(/[A-Z]/, "Must contain at least one uppercase letter")
@@ -82,6 +82,15 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// MEDI-100: forgot/reset password (client-side mirror of the backend schemas).
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  password: strongPassword,
+});
 
 /**
  * Where to send a user after a successful login, based on their role.

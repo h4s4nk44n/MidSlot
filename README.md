@@ -1046,6 +1046,34 @@ Revoke the current refresh token and clear the cookie.
 
 ---
 
+### POST `/auth/forgot-password`
+
+Request a password reset link. **Always returns 200** and never reveals whether the email is registered (anti-enumeration). If it maps to an active user, a single-use, time-limited (1 h) reset link is emailed via the [email adapter](#email-notifications).
+
+**Auth:** Public · rate-limited
+
+**Request body:** `{ "email": "ali.vural@example.com" }`
+
+**Response (200 OK):** `{ "message": "If that email is registered, a password reset link has been sent." }`
+
+---
+
+### POST `/auth/reset-password`
+
+Consume a reset token and set a new password. Burns the token (and any other unused reset tokens for the user) and revokes the user's refresh tokens so existing sessions can't continue.
+
+**Auth:** Public · rate-limited
+
+**Request body:** `{ "token": "<from the email link>", "password": "NewPassw0rd" }`
+
+- `password` must meet the registration policy (≥ 8 chars, upper + lower + digit, not a common password).
+
+**Response (200 OK):** `{ "message": "Password has been reset. You can now log in." }`
+
+**Errors:** `400` invalid / expired / already-used token, or a weak password.
+
+---
+
 ### GET `/auth/me`
 
 Get the current authenticated user's profile.
@@ -1539,6 +1567,7 @@ Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `c
 | `EMAIL_PROVIDER`          | no       | `console`            | `console` (logs emails) or `resend` (Resend API) |
 | `RESEND_API_KEY`          | cond.    | —                    | Resend API key — required when `EMAIL_PROVIDER=resend` |
 | `EMAIL_FROM`              | cond.    | —                    | From address — required when `EMAIL_PROVIDER=resend` |
+| `APP_BASE_URL`            | no       | `http://localhost:3001` | Frontend base URL used to build password-reset links |
 
 ### Root (`./.env` — Docker Compose only)
 
@@ -1559,6 +1588,7 @@ Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `c
 | `EMAIL_PROVIDER`        | `console`                     | `console` or `resend` |
 | `RESEND_API_KEY`        | (empty)                       | Resend API key (for `resend`) |
 | `EMAIL_FROM`            | (example)                     | From address (for `resend`) |
+| `APP_BASE_URL`          | `http://localhost:3001`       | Frontend base URL for password-reset links |
 
 ---
 
