@@ -129,8 +129,13 @@ app.use((_req: Request, res: Response) => {
 });
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  logger.info(`MidSlot API running on http://localhost:${PORT}`);
-});
+// Don't bind a port under test — supertest drives the app handler directly,
+// and multiple test files importing `app` would otherwise race on EADDRINUSE
+// (tolerated on Windows, fatal on the Linux CI runner).
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    logger.info(`MidSlot API running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
