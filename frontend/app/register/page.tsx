@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AuthShell, AuthSwitchLink } from "@/components/auth/AuthShell";
 import { FormField } from "@/components/ui/FormField";
+import { PasswordField } from "@/components/ui/PasswordField";
 import { Button } from "@/components/ui/Button";
 import { registerSchema, REGISTER_GENDERS } from "@/lib/auth-validation";
+import { passwordMeetsAllRules } from "@/lib/password-rules";
 import { apiPost, ApiError } from "@/lib/api";
 
 interface RegisterResponse {
@@ -156,16 +158,15 @@ export default function RegisterPage() {
           disabled={submitting}
         />
 
-        <FormField
+        <PasswordField
           name="password"
-          type="password"
           label="Password"
           autoComplete="new-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={fieldErrors.password}
-          hint="At least 8 characters with one uppercase letter, one lowercase letter, and one digit."
+          showRequirements
           disabled={submitting}
         />
 
@@ -249,7 +250,13 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <Button type="submit" size="lg" loading={submitting} className="mt-2 w-full">
+        <Button
+          type="submit"
+          size="lg"
+          loading={submitting}
+          disabled={!passwordMeetsAllRules(password)}
+          className="mt-2 w-full"
+        >
           {submitting ? "Creating account…" : "Create account"}
         </Button>
 
