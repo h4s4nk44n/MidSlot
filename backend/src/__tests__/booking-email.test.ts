@@ -123,6 +123,10 @@ describe("MEDI-98 — booking confirmation email", () => {
 
     afterAll(async () => {
       setEmailProvider(resolveEmailProvider());
+      // The booking fires a fire-and-forget audit write (setImmediate). Let it
+      // flush before we delete fixtures / disconnect so it can't race teardown
+      // on a slow CI runner.
+      await new Promise((resolve) => setImmediate(resolve));
       await prisma.appointment.deleteMany({ where: { timeSlotId: slotId } });
       await prisma.timeSlot.deleteMany({ where: { id: slotId } });
       await prisma.doctor.deleteMany({ where: { id: doctorId } });
