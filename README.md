@@ -858,13 +858,26 @@ which has two independent jobs (Node 20, matching the Dockerfiles):
 
 | Job                        | Steps                                                                                                                          |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **Backend** (`backend/`)   | `npm ci` → `prisma generate` → `lint` → `build` → `test:setup` (migrate the test DB) → `test`, against a Postgres 16 service container |
+| **Backend** (`backend/`)   | `npm ci` → `prisma generate` → `lint` → `build` → `test:setup` (migrate the test DB) → `test:coverage` (tests + coverage gate), against a Postgres 16 service container |
 | **Frontend** (`frontend/`) | `npm ci` → `lint` → `build`                                                                                                   |
 
 npm downloads are cached per lockfile. The backend integration tests run
 against an ephemeral Postgres service provided by GitHub Actions (database
 `midslot_test`, matching `backend/.env.test`), so no external database is
 needed for CI.
+
+### Test coverage gate
+
+The backend `test:coverage` script runs the suite with coverage and **fails the build** if it drops below a modest global threshold (configured in [`backend/jest.config.ts`](backend/jest.config.ts)):
+
+| Metric     | Threshold |
+| ---------- | --------- |
+| Statements | 40%       |
+| Lines      | 40%       |
+| Functions  | 30%       |
+| Branches   | 15%       |
+
+Coverage is scoped to application code (the generated Prisma client, tests and type declarations are excluded). The full HTML + lcov report is uploaded as the **`backend-coverage`** CI artifact on every run (including failures). Raise the thresholds as coverage improves.
 
 ### Branch protection (manual step)
 
