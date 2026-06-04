@@ -1,4 +1,5 @@
 import logger from "./logger";
+import nodemailer, { type Transporter } from "nodemailer";
 
 /**
  * Env-controlled email adapter.
@@ -8,6 +9,10 @@ import logger from "./logger";
  *     ever hits a real provider.
  *   - "resend" — delivers via the Resend HTTP API (requires RESEND_API_KEY and
  *     EMAIL_FROM). Falls back to console if either is missing.
+ *   - "smtp" — delivers via any SMTP server (Gmail, Brevo, Outlook, …). Unlike
+ *     the Resend sandbox this sends to ANY recipient. Requires SMTP_HOST,
+ *     SMTP_USER and SMTP_PASS (EMAIL_FROM optional — defaults to SMTP_USER).
+ *     Falls back to console if a required var is missing.
  *
  * The rest of the app only talks to {@link EmailProvider}, so swapping
  * transports is a config change, and tests inject a fake via
@@ -67,6 +72,50 @@ export class ResendEmailProvider implements EmailProvider {
   }
 }
 
+export interface SmtpOptions {
+  host: string;
+  port: number;
+  /** true for implicit TLS (port 465), false for STARTTLS (port 587). */
+  secure: boolean;
+  user: string;
+  pass: string;
+}
+
+/**
+ * Generic SMTP transport — works with Gmail, Brevo, Outlook, or any SMTP host,
+ * and delivers to ANY recipient (no domain/sandbox restriction).
+ *
+ * Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=587, SMTP_USER=<you>@gmail.com,
+ * SMTP_PASS=<16-char App Password> (NOT your normal password; requires 2-Step
+ * Verification on the Google account).
+ */
+export class SmtpEmailProvider implements EmailProvider {
+  readonly name = "smtp";
+  private readonly transporter: Transporter;
+
+  constructor(
+    private readonly from: string,
+    opts: SmtpOptions,
+  ) {
+    this.transporter = nodemailer.createTransport({
+      host: opts.host,
+      port: opts.port,
+      secure: opts.secure,
+      auth: { user: opts.user, pass: opts.pass },
+    });
+  }
+
+  async send(message: EmailMessage): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.from,
+      to: message.to,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+    });
+  }
+}
+
 /** Build the provider from the current environment. Exported for unit tests. */
 export function resolveEmailProvider(): EmailProvider {
   const kind = (process.env.EMAIL_PROVIDER || "console").toLowerCase();
@@ -80,6 +129,24 @@ export function resolveEmailProvider(): EmailProvider {
       return new ConsoleEmailProvider();
     }
     return new ResendEmailProvider(apiKey, from);
+  }
+  if (kind === "smtp") {
+    const host = process.env.SMTP_HOST;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    // Gmail rewrites From to the authenticated user anyway, so EMAIL_FROM is
+    // optional here — fall back to the login address.
+    const from = process.env.EMAIL_FROM || user;
+    if (!host || !user || !pass || !from) {
+      logger.warn(
+        "[email] EMAIL_PROVIDER=smtp but SMTP_HOST/SMTP_USER/SMTP_PASS is missing; using console transport",
+      );
+      return new ConsoleEmailProvider();
+    }
+    const port = parseInt(process.env.SMTP_PORT || "587", 10);
+    // Port 465 = implicit TLS, 587 = STARTTLS. SMTP_SECURE overrides the guess.
+    const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : port === 465;
+    return new SmtpEmailProvider(from, { host, port, secure, user, pass });
   }
   return new ConsoleEmailProvider();
 }

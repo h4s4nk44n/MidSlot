@@ -1538,7 +1538,28 @@ curl -X POST http://localhost:3000/api/admin/scheduler/run \
 
 ### Email notifications
 
-Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `console` transport logs messages (dev + tests) and `resend` delivers via the [Resend](https://resend.com) API (`RESEND_API_KEY` + `EMAIL_FROM`). On a successful booking the patient receives a **confirmation email** with the doctor, date and time, and the [scheduler](#background-scheduler) sends a **24 h reminder email** ~1 day before the appointment (at most once per appointment, deduped via `reminderSentAt`). Tests inject a fake transport, so CI never contacts a real provider.
+Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`):
+
+- **`console`** (default) — logs messages; used in dev + tests, never delivers.
+- **`resend`** — delivers via the [Resend](https://resend.com) API (`RESEND_API_KEY` + `EMAIL_FROM`). Without a verified domain Resend only delivers to your own account address (handy for a quick self-test).
+- **`smtp`** — delivers via any SMTP server (Gmail, Brevo, Outlook, …) and reaches **any** recipient. Needs `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (`EMAIL_FROM` optional — defaults to `SMTP_USER`).
+
+On a successful booking the patient receives a **confirmation email** with the doctor, date and time, and the [scheduler](#background-scheduler) sends a **24 h reminder email** ~1 day before the appointment (at most once per appointment, deduped via `reminderSentAt`). Email delivery is best-effort — failures are logged but never block a booking. Tests inject a fake transport, so CI never contacts a real provider.
+
+**Send real email for free with Gmail (no domain needed):**
+
+1. Turn on **2-Step Verification** on your Google account, then create an **App Password** (Google Account → Security → App passwords) — a 16-character code.
+2. In `.env` (root for Docker Compose, or `backend/.env` for `npm run dev`):
+   ```bash
+   EMAIL_PROVIDER=smtp
+   EMAIL_FROM=Your Name <yourname@gmail.com>
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_USER=yourname@gmail.com
+   SMTP_PASS=your16charapppassword   # the App Password, NOT your Gmail password
+   ```
+3. Restart the backend (env is read once at startup). Every patient now gets real mail sent from your Gmail; free Gmail allows ~500 recipients/day.
 
 ---
 
@@ -1588,9 +1609,14 @@ Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `c
 | `SEED_USER_PASSWORD`      | no       | dev default          | Override seed password for non-admin users |
 | `SCHEDULER_ENABLED`       | no       | `true`               | Set `false` to disable the background scheduler (never runs under test) |
 | `SCHEDULER_CRON`          | no       | `*/15 * * * *`       | Cron expression for the maintenance cycle (auto-cancel + reminders) |
-| `EMAIL_PROVIDER`          | no       | `console`            | `console` (logs emails) or `resend` (Resend API) |
+| `EMAIL_PROVIDER`          | no       | `console`            | `console` (logs emails), `resend` (Resend API) or `smtp` (any SMTP server) |
 | `RESEND_API_KEY`          | cond.    | —                    | Resend API key — required when `EMAIL_PROVIDER=resend` |
-| `EMAIL_FROM`              | cond.    | —                    | From address — required when `EMAIL_PROVIDER=resend` |
+| `EMAIL_FROM`              | cond.    | —                    | From address — required for `resend`; optional for `smtp` (defaults to `SMTP_USER`) |
+| `SMTP_HOST`               | cond.    | —                    | SMTP host (e.g. `smtp.gmail.com`) — required when `EMAIL_PROVIDER=smtp` |
+| `SMTP_PORT`               | no       | `587`                | `587` (STARTTLS) or `465` (implicit TLS) |
+| `SMTP_SECURE`             | no       | `false`              | `true` for implicit TLS; auto-`true` when `SMTP_PORT=465` |
+| `SMTP_USER`               | cond.    | —                    | SMTP login (full email) — required when `EMAIL_PROVIDER=smtp` |
+| `SMTP_PASS`               | cond.    | —                    | SMTP password / Gmail App Password — required when `EMAIL_PROVIDER=smtp` |
 | `APP_BASE_URL`            | no       | `http://localhost:3001` | Frontend base URL used to build password-reset links |
 
 ### Root (`./.env` — Docker Compose only)
@@ -1609,9 +1635,14 @@ Outbound email uses an env-controlled adapter (`EMAIL_PROVIDER`): the default `c
 | `CLINIC_TIMEZONE`       | `Europe/Istanbul`             | IANA timezone |
 | `SCHEDULER_ENABLED`     | `true`                        | Toggle the backend maintenance scheduler |
 | `SCHEDULER_CRON`        | `*/15 * * * *`                | Maintenance cycle cron expression |
-| `EMAIL_PROVIDER`        | `console`                     | `console` or `resend` |
+| `EMAIL_PROVIDER`        | `console`                     | `console`, `resend`, or `smtp` |
 | `RESEND_API_KEY`        | (empty)                       | Resend API key (for `resend`) |
-| `EMAIL_FROM`            | (example)                     | From address (for `resend`) |
+| `EMAIL_FROM`            | (example)                     | From address (`resend`; optional for `smtp`) |
+| `SMTP_HOST`             | (empty)                       | SMTP host, e.g. `smtp.gmail.com` (for `smtp`) |
+| `SMTP_PORT`             | `587`                         | `587` (STARTTLS) or `465` (TLS) |
+| `SMTP_SECURE`           | `false`                       | `true` for port 465 |
+| `SMTP_USER`             | (empty)                       | SMTP login / full email (for `smtp`) |
+| `SMTP_PASS`             | (empty)                       | SMTP password / Gmail App Password (for `smtp`) |
 | `APP_BASE_URL`          | `http://localhost:3001`       | Frontend base URL for password-reset links |
 
 ---

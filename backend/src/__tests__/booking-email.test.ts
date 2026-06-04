@@ -27,13 +27,20 @@ function tokenFor(userId: string, email: string, role: string): string {
 
 describe("MEDI-98 — booking confirmation email", () => {
   describe("adapter selection (resolveEmailProvider)", () => {
-    const saved = {
-      EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
-      RESEND_API_KEY: process.env.RESEND_API_KEY,
-      EMAIL_FROM: process.env.EMAIL_FROM,
-    };
+    const ENV_KEYS = [
+      "EMAIL_PROVIDER",
+      "RESEND_API_KEY",
+      "EMAIL_FROM",
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "SMTP_USER",
+      "SMTP_PASS",
+      "SMTP_SECURE",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+    for (const k of ENV_KEYS) saved[k] = process.env[k];
     afterEach(() => {
-      for (const k of ["EMAIL_PROVIDER", "RESEND_API_KEY", "EMAIL_FROM"] as const) {
+      for (const k of ENV_KEYS) {
         if (saved[k] === undefined) delete process.env[k];
         else process.env[k] = saved[k];
       }
@@ -55,6 +62,23 @@ describe("MEDI-98 — booking confirmation email", () => {
       process.env.EMAIL_PROVIDER = "resend";
       delete process.env.RESEND_API_KEY;
       process.env.EMAIL_FROM = "noreply@medislot.test";
+      expect(resolveEmailProvider().name).toBe("console");
+    });
+
+    it("uses SMTP when EMAIL_PROVIDER=smtp and host/user/pass are present", () => {
+      process.env.EMAIL_PROVIDER = "smtp";
+      process.env.SMTP_HOST = "smtp.gmail.com";
+      process.env.SMTP_USER = "demo@gmail.com";
+      process.env.SMTP_PASS = "app-password-1234";
+      delete process.env.EMAIL_FROM; // optional — defaults to SMTP_USER
+      expect(resolveEmailProvider().name).toBe("smtp");
+    });
+
+    it("falls back to console when SMTP creds are incomplete", () => {
+      process.env.EMAIL_PROVIDER = "smtp";
+      process.env.SMTP_HOST = "smtp.gmail.com";
+      process.env.SMTP_USER = "demo@gmail.com";
+      delete process.env.SMTP_PASS; // missing secret → console
       expect(resolveEmailProvider().name).toBe("console");
     });
   });
