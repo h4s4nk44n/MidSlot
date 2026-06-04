@@ -1,9 +1,30 @@
 import audit, { stripSensitive } from "../utils/audit";
 import { AuditAction } from "../types/audit";
 import { prisma } from "../lib/prisma";
+import { Prisma } from "../generated/prisma";
 
 // Helper: wait for setImmediate to complete
 const flushSetImmediate = () => new Promise((resolve) => setImmediate(resolve));
+
+// audit.log writes via setImmediate (fire-and-forget). A fixed sleep is flaky
+// under CI load — the async DB write can land later than the wait — so poll
+// until the row appears (or the timeout elapses) instead.
+async function waitForAuditEntry(where: Prisma.AuditLogWhereInput, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  let entry = await prisma.auditLog.findFirst({ where, orderBy: { createdAt: "desc" } });
+  while (!entry && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 25));
+    await flushSetImmediate();
+    entry = await prisma.auditLog.findFirst({ where, orderBy: { createdAt: "desc" } });
+  }
+  return entry;
+}
+
+// A unique-per-call marker (stored in the ip field) so the poller matches the
+// row THIS test wrote, not a stale login.success/login.failed entry left in the
+// shared DB by another test.
+let auditMarkerSeq = 0;
+const auditMarker = () => `medi-audit-${Date.now()}-${auditMarkerSeq++}`;
 
 describe("audit helper", () => {
   describe("stripSensitive", () => {
@@ -71,22 +92,15 @@ describe("audit helper", () => {
 
   describe("audit.log", () => {
     it("writes a log entry to the database", async () => {
+      const ip = auditMarker();
       audit.log({
         action: AuditAction.LOGIN_SUCCESS,
         actorId: null,
         metadata: { email: "test@example.com" },
-        ip: "127.0.0.1",
+        ip,
       });
 
-      // Wait for setImmediate to run
-      await flushSetImmediate();
-      // One more tick — to let the DB write complete
-      await new Promise((r) => setTimeout(r, 50));
-
-      const entry = await prisma.auditLog.findFirst({
-        where: { action: "login.success", ip: "127.0.0.1" },
-        orderBy: { createdAt: "desc" },
-      });
+      const entry = await waitForAuditEntry({ action: "login.success", ip });
 
       expect(entry).not.toBeNull();
       expect(entry!.metadata).toEqual({ email: "test@example.com" });
@@ -96,6 +110,7 @@ describe("audit helper", () => {
     });
 
     it("strips sensitive fields from metadata before storing", async () => {
+      const ip = auditMarker();
       audit.log({
         action: AuditAction.LOGIN_FAILED,
         metadata: {
@@ -103,15 +118,10 @@ describe("audit helper", () => {
           password: "should-not-be-stored",
           attempt: { token: "should-also-not-be-stored" },
         },
+        ip,
       });
 
-      await flushSetImmediate();
-      await new Promise((r) => setTimeout(r, 50));
-
-      const entry = await prisma.auditLog.findFirst({
-        where: { action: "login.failed" },
-        orderBy: { createdAt: "desc" },
-      });
+      const entry = await waitForAuditEntry({ action: "login.failed", ip });
 
       expect(entry).not.toBeNull();
       expect(entry!.metadata).toEqual({
@@ -143,16 +153,23 @@ describe("audit helper", () => {
       createSpy.mockRestore();
     });
 
-    it("returns synchronously (does not block the caller)", () => {
-      const start = Date.now();
+    it("returns synchronously (does not block the caller)", async () => {
+      // audit.log schedules the DB insert on setImmediate, so create() has not
+      // been called by the time it returns — and runs on the next tick. This is
+      // a deterministic check, unlike a wall-clock threshold (which flakes under
+      // CI load).
+      const spy = jest.spyOn(prisma.auditLog, "create").mockResolvedValue({} as never);
+
       audit.log({
         action: AuditAction.APPOINTMENT_BOOK,
         metadata: { slotId: "abc" },
       });
-      const elapsed = Date.now() - start;
+      expect(spy).not.toHaveBeenCalled();
 
-      // Should be virtually instant — definitely under 5ms even on slow CI
-      expect(elapsed).toBeLessThan(5);
+      await flushSetImmediate();
+      expect(spy).toHaveBeenCalled();
+
+      spy.mockRestore();
     });
   });
 
