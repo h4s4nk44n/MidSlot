@@ -33,7 +33,7 @@ export default function AvailabilityManagementPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiGet<TimeSlot[] | { items: TimeSlot[] }>("/slots");
+      const res = await apiGet<TimeSlot[] | { items: TimeSlot[] }>("/slots/mine");
       const extractedSlots = Array.isArray(res) ? res : (res as { items: TimeSlot[] }).items || [];
       
       // DEFINITIVE FIX: Only show slots whose end time is in the future (exclude past slots)

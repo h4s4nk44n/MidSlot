@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { createSlot, getSlots, updateSlot, deleteSlot } from "../controllers/slot.controller";
+import {
+  createSlot,
+  getSlots,
+  getMySlots,
+  updateSlot,
+  deleteSlot,
+} from "../controllers/slot.controller";
 import { authenticate, authorize, AuthRequest } from "../middlewares/auth.middleware";
 import { Request, Response, NextFunction } from "express";
 import validate from "../middlewares/validate.middleware";
@@ -12,6 +18,9 @@ router.get("/slots", getSlots);
 router.use((req: Request, res: Response, next: NextFunction) =>
   authenticate(req as AuthRequest, res, next),
 );
+
+// A doctor's own slots (free + booked), scoped to the JWT — never other doctors'.
+router.get("/slots/mine", authorize("DOCTOR"), getMySlots);
 
 router.post("/slots", authorize("DOCTOR"), validate(createSlotSchema), createSlot);
 

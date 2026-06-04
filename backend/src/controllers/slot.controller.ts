@@ -150,6 +150,29 @@ export const getSlots = async (req: Request, res: Response, next: NextFunction):
   }
 };
 
+/**
+ * GET /slots/mine — every slot owned by the authenticated doctor (free AND
+ * booked). Scoped via the JWT (resolveDoctorForRequest), so a doctor only ever
+ * sees their own availability — never other doctors'. Used by the doctor's
+ * Availability page (the public GET /slots is for patients browsing by doctorId).
+ */
+export const getMySlots = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const doctor = await resolveDoctorForRequest(req);
+    const slots = await prisma.timeSlot.findMany({
+      where: { doctorId: doctor.id },
+      orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    });
+    res.status(200).json(slots);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const updateSlot = async (
   req: Request,
   res: Response,
